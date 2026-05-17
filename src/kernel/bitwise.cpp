@@ -58,6 +58,88 @@ void naive_bitwise(std::span<std::int8_t> result,
 void stu_bitwise(std::span<std::int8_t> result, std::span<const std::int8_t> a,
                  std::span<const std::int8_t> b) {
     // Implement your version...
+    const std::size_t n = std::min({result.size(), a.size(), b.size()});
+
+    auto *r = result.data();
+    const auto *pa = a.data();
+    const auto *pb = b.data();
+
+    /* 
+     * Simplified bit by bit
+     * each bit:
+     *  result = (either & 0x18) | (~either & 0x81) | 0x24
+     * where either = a/b
+     * 
+     * repeat the mask across a 64-bit word
+     */
+
+    constexpr std::uint64_t kEitherMask = 0x1818181818181818ULL;
+    constexpr std::uint64_t kNotEitherMask = 0x8181818181818181ULL;
+    constexpr std::uint64_t kConstMask = 0x2424242424242424ULL;
+
+    std::size_t i = 0;
+
+    // Process 32 bytes per loop iteration: 4 packed uint64_t blocks.
+    for (; i + 31 < n; i += 32) {
+        std::uint64_t a0, a1, a2, a3;
+        std::uint64_t b0, b1, b2, b3;
+
+        std::memcpy(&a0, pa + i + 0,  sizeof(a0));
+        std::memcpy(&b0, pb + i + 0,  sizeof(b0));
+        std::memcpy(&a1, pa + i + 8,  sizeof(a1));
+        std::memcpy(&b1, pb + i + 8,  sizeof(b1));
+        std::memcpy(&a2, pa + i + 16, sizeof(a2));
+        std::memcpy(&b2, pb + i + 16, sizeof(b2));
+        std::memcpy(&a3, pa + i + 24, sizeof(a3));
+        std::memcpy(&b3, pb + i + 24, sizeof(b3));
+
+        const std::uint64_t e0 = a0 | b0;
+        const std::uint64_t e1 = a1 | b1;
+        const std::uint64_t e2 = a2 | b2;
+        const std::uint64_t e3 = a3 | b3;
+
+        const std::uint64_t o0 =
+            (e0 & kEitherMask) | (~e0 & kNotEitherMask) | kConstMask;
+        const std::uint64_t o1 =
+            (e1 & kEitherMask) | (~e1 & kNotEitherMask) | kConstMask;
+        const std::uint64_t o2 =
+            (e2 & kEitherMask) | (~e2 & kNotEitherMask) | kConstMask;
+        const std::uint64_t o3 =
+            (e3 & kEitherMask) | (~e3 & kNotEitherMask) | kConstMask;
+
+        std::memcpy(r + i + 0,  &o0, sizeof(o0));
+        std::memcpy(r + i + 8,  &o1, sizeof(o1));
+        std::memcpy(r + i + 16, &o2, sizeof(o2));
+        std::memcpy(r + i + 24, &o3, sizeof(o3));
+    }
+
+    // Process remaining 8-byte blocks.
+    for (; i + 7 < n; i += 8) {
+        std::uint64_t av;
+        std::uint64_t bv;
+
+        std::memcpy(&av, pa + i, sizeof(av));
+        std::memcpy(&bv, pb + i, sizeof(bv));
+
+        const std::uint64_t e = av | bv;
+        const std::uint64_t out =
+            (e & kEitherMask) | (~e & kNotEitherMask) | kConstMask;
+
+        std::memcpy(r + i, &out, sizeof(out));
+    }
+
+    // Scalar tail.
+    for (; i < n; ++i) {
+        const auto ua = static_cast<std::uint8_t>(pa[i]);
+        const auto ub = static_cast<std::uint8_t>(pb[i]);
+
+        const auto either = static_cast<std::uint8_t>(ua | ub);
+        const auto out = static_cast<std::uint8_t>(
+            (either & 0x18u) | ((~either) & 0x81u) | 0x24u
+        );
+
+        r[i] = static_cast<std::int8_t>(out);
+    }
 }
 
 void naive_bitwise_wrapper(void *ctx) {
