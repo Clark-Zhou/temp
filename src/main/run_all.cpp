@@ -173,16 +173,16 @@ int main() {
         std::println("ReLU: vector length={}", relu_size);
 
         // TODO: Uncomment this block when the student implementation exists.
-        // relu_args relu_args_stu;
-        // initialize_relu(&relu_args_stu, relu_size, seed);
-        // run_benchmark({"ReLU",
-        //                stu_relu_wrapper,
-        //                naive_relu_wrapper,
-        //                relu_check,
-        //                &relu_args_stu,
-        //                &relu_args_ref,
-        //                BASELINE_RELU,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_RELU});
+        relu_args relu_args_stu;
+        initialize_relu(&relu_args_stu, relu_size, seed);
+        run_benchmark({"ReLU",
+                        stu_relu_wrapper,
+                        naive_relu_wrapper,
+                        relu_check,
+                        &relu_args_stu,
+                        &relu_args_ref,
+                        BASELINE_RELU,
+                        NAIVE_SPEEDUP_LOWER_BOUND_RELU});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"ReLU",
@@ -202,16 +202,16 @@ int main() {
         std::println("Bitwise: vector length={}", bitwise_size);
 
         // TODO: Uncomment this block when the student implementation exists.
-        // bitwise_args bitwise_args_stu;
-        // initialize_bitwise(&bitwise_args_stu, bitwise_size, seed);
-        // run_benchmark({"Bitwise",
-        //                stu_bitwise_wrapper,
-        //                naive_bitwise_wrapper,
-        //                bitwise_check,
-        //                &bitwise_args_stu,
-        //                &bitwise_args_ref,
-        //                BASELINE_BITWISE,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_BITWISE});
+         bitwise_args bitwise_args_stu;
+     initialize_bitwise(&bitwise_args_stu, bitwise_size, seed);
+         run_benchmark({"Bitwise",
+                        stu_bitwise_wrapper,
+                        naive_bitwise_wrapper,
+                        bitwise_check,
+                        &bitwise_args_stu,
+                        &bitwise_args_ref,
+                        BASELINE_BITWISE,
+                        NAIVE_SPEEDUP_LOWER_BOUND_BITWISE});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Bitwise",
@@ -230,16 +230,16 @@ int main() {
         std::cout << "MatMul: n=" << matmul_args_ref.n << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // matmul_args matmul_args_stu;
-        // initialize_matmul(matmul_args_stu, 512, seed);
-        // run_benchmark({"MatMul",
-        //                stu_matmul_wrapper,
-        //                naive_matmul_wrapper,
-        //                matmul_check,
-        //                &matmul_args_stu,
-        //                &matmul_args_ref,
-        //                BASELINE_MATMUL,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_MATMUL});
+         matmul_args matmul_args_stu;
+         initialize_matmul(matmul_args_stu, 512, seed);
+         run_benchmark({"MatMul",
+                        stu_matmul_wrapper,
+                    naive_matmul_wrapper,
+                        matmul_check,
+                        &matmul_args_stu,
+                        &matmul_args_ref,
+                        BASELINE_MATMUL,
+                        NAIVE_SPEEDUP_LOWER_BOUND_MATMUL});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"MatMul",
@@ -324,16 +324,16 @@ int main() {
                   << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // grff_args grff_args_stu;
-        // initialize_grff(&grff_args_stu, grff_size, seed);
-        // run_benchmark({"GRFF",
-        //                stu_grff_wrapper,
-        //                naive_grff_wrapper,
-        //                grff_check,
-        //                &grff_args_stu,
-        //                &grff_args_ref,
-        //                BASELINE_GRFF,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_GRFF});
+         grff_args grff_args_stu;
+         initialize_grff(&grff_args_stu, grff_size, seed);
+         run_benchmark({"GRFF",
+                        stu_grff_wrapper,
+                        naive_grff_wrapper,
+                        grff_check,
+                        &grff_args_stu,
+                        &grff_args_ref,
+                        BASELINE_GRFF,
+                        NAIVE_SPEEDUP_LOWER_BOUND_GRFF});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"GRFF",
