@@ -92,96 +92,52 @@ void naive_trace_replay(uint64_t& out,
 void stu_trace_replay(uint64_t& out,
                       const std::vector<RequestRecord>& records,
                       const std::vector<uint32_t>& trace) {
-    // TODO: Implement your version, and call it in stu_trace_replay_wrapper
+    constexpr uint64_t order_mix = 1315423911ull;
+    constexpr uint64_t order_mix2 = order_mix * order_mix;
+    constexpr uint64_t order_mix3 = order_mix2 * order_mix;
+    constexpr uint64_t order_mix4 = order_mix3 * order_mix;
 
-    const RequestRecord* __restrict__ rec = records.data();
-    const uint32_t* __restrict__ tr = trace.data();
-
+    const size_t record_count = records.size();
     const size_t n = trace.size();
 
+    static thread_local std::vector<uint32_t> costs;
+    costs.resize(record_count);
+
+    for (size_t i = 0; i < record_count; ++i) {
+        const RequestRecord& record = records[i];
+        costs[i] = static_cast<uint32_t>(
+            static_cast<uint64_t>(record.base_cost) +
+            2ull * record.retry_penalty +
+            record.miss_penalty +
+            (record.bytes >> 4)
+        );
+    }
+
+    const uint32_t* cost_data = costs.data();
+    const uint32_t* trace_data = trace.data();
+
     uint64_t total = 0;
-    const uint64_t order_mix = 1315423911ull;
-
-    constexpr size_t kPrefetchDistance = 32;
-
     size_t i = 0;
+    const size_t limit = n & ~size_t{3};
 
-    for (; i + 3 < n; i += 4) {
-#if defined(__GNUC__)
-        if (i + kPrefetchDistance + 0 < n) {
-            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 0], 0, 1);
-        }
-        if (i + kPrefetchDistance + 1 < n) {
-            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 1], 0, 1);
-        }
-        if (i + kPrefetchDistance + 2 < n) {
-            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 2], 0, 1);
-        }
-        if (i + kPrefetchDistance + 3 < n) {
-            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 3], 0, 1);
-        }
-#endif
+    for (; i < limit; i += 4) {
+        const uint64_t c0 = cost_data[trace_data[i]];
+        const uint64_t c1 = cost_data[trace_data[i + 1]];
+        const uint64_t c2 = cost_data[trace_data[i + 2]];
+        const uint64_t c3 = cost_data[trace_data[i + 3]];
 
-        {
-            const RequestRecord& r = rec[tr[i + 0]];
-            const uint64_t cost =
-                static_cast<uint64_t>(r.base_cost)
-                + 2ull * static_cast<uint64_t>(r.retry_penalty)
-                + static_cast<uint64_t>(r.miss_penalty)
-                + (static_cast<uint64_t>(r.bytes) >> 4);
-            total = total * order_mix + cost;
-        }
-
-        {
-            const RequestRecord& r = rec[tr[i + 1]];
-            const uint64_t cost =
-                static_cast<uint64_t>(r.base_cost)
-                + 2ull * static_cast<uint64_t>(r.retry_penalty)
-                + static_cast<uint64_t>(r.miss_penalty)
-                + (static_cast<uint64_t>(r.bytes) >> 4);
-            total = total * order_mix + cost;
-        }
-
-        {
-            const RequestRecord& r = rec[tr[i + 2]];
-            const uint64_t cost =
-                static_cast<uint64_t>(r.base_cost)
-                + 2ull * static_cast<uint64_t>(r.retry_penalty)
-                + static_cast<uint64_t>(r.miss_penalty)
-                + (static_cast<uint64_t>(r.bytes) >> 4);
-            total = total * order_mix + cost;
-        }
-
-        {
-            const RequestRecord& r = rec[tr[i + 3]];
-            const uint64_t cost =
-                static_cast<uint64_t>(r.base_cost)
-                + 2ull * static_cast<uint64_t>(r.retry_penalty)
-                + static_cast<uint64_t>(r.miss_penalty)
-                + (static_cast<uint64_t>(r.bytes) >> 4);
-            total = total * order_mix + cost;
-        }
+        total = total * order_mix4 +
+                c0 * order_mix3 +
+                c1 * order_mix2 +
+                c2 * order_mix +
+                c3;
     }
 
     for (; i < n; ++i) {
-#if defined(__GNUC__)
-        if (i + kPrefetchDistance < n) {
-            __builtin_prefetch(rec + tr[i + kPrefetchDistance], 0, 1);
-        }
-#endif
-
-        const RequestRecord& r = rec[tr[i]];
-        const uint64_t cost =
-            static_cast<uint64_t>(r.base_cost)
-            + 2ull * static_cast<uint64_t>(r.retry_penalty)
-            + static_cast<uint64_t>(r.miss_penalty)
-            + (static_cast<uint64_t>(r.bytes) >> 4);
-
-        total = total * order_mix + cost;
+        total = total * order_mix + cost_data[trace_data[i]];
     }
 
     out = total;
-
 }
 
 void naive_trace_replay_wrapper(void* ctx) {
