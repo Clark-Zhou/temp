@@ -1,9 +1,12 @@
 #include "bitwise.h"
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <random>
+#include <thread>
+
 
 void initialize_bitwise(bitwise_args *args, const size_t size,
                                   const std::uint_fast64_t seed) {
@@ -57,90 +60,52 @@ void naive_bitwise(std::span<std::int8_t> result,
 // TODO: Optimize the bitwise function
 void stu_bitwise(std::span<std::int8_t> result, std::span<const std::int8_t> a,
                  std::span<const std::int8_t> b) {
-    // Implement your version...
+    constexpr std::uint64_t kSelect64 = 0x9999999999999999ULL;
+    constexpr std::uint64_t kFlip64 = 0xA5A5A5A5A5A5A5A5ULL;
+    constexpr std::uint8_t kSelect8 = 0x99u;
+    constexpr std::uint8_t kFlip8 = 0xA5u;
+    constexpr std::size_t kThreadCount = 4;
+
     const std::size_t n = std::min({result.size(), a.size(), b.size()});
+    const std::size_t chunks = n / sizeof(std::uint64_t);
+    const std::size_t tail_start = chunks * sizeof(std::uint64_t);
 
-    auto *r = result.data();
-    const auto *pa = a.data();
-    const auto *pb = b.data();
+    auto* res64 = reinterpret_cast<std::uint64_t*>(result.data());
+    const auto* a64 = reinterpret_cast<const std::uint64_t*>(a.data());
+    const auto* b64 = reinterpret_cast<const std::uint64_t*>(b.data());
 
-    /* 
-     * Simplified bit by bit
-     * each bit:
-     *  result = (either & 0x18) | (~either & 0x81) | 0x24
-     * where either = a/b
-     * 
-     * repeat the mask across a 64-bit word
-     */
+    auto compute_chunks = [&](std::size_t begin, std::size_t end) {
+        for (std::size_t i = begin; i < end; ++i) {
+            res64[i] = ((a64[i] | b64[i]) & kSelect64) ^ kFlip64;
+        }
+    };
 
-    constexpr std::uint64_t kEitherMask = 0x1818181818181818ULL;
-    constexpr std::uint64_t kNotEitherMask = 0x8181818181818181ULL;
-    constexpr std::uint64_t kConstMask = 0x2424242424242424ULL;
+    if (chunks >= 32768) {
+        std::array<std::thread, kThreadCount - 1> workers;
+        const std::size_t block = chunks / kThreadCount;
 
-    std::size_t i = 0;
+        for (std::size_t t = 0; t + 1 < kThreadCount; ++t) {
+            const std::size_t begin = t * block;
+            const std::size_t end = begin + block;
+            workers[t] = std::thread(compute_chunks, begin, end);
+        }
 
-    // Process 32 bytes per loop iteration: 4 packed uint64_t blocks.
-    for (; i + 31 < n; i += 32) {
-        std::uint64_t a0, a1, a2, a3;
-        std::uint64_t b0, b1, b2, b3;
+        compute_chunks((kThreadCount - 1) * block, chunks);
 
-        std::memcpy(&a0, pa + i + 0,  sizeof(a0));
-        std::memcpy(&b0, pb + i + 0,  sizeof(b0));
-        std::memcpy(&a1, pa + i + 8,  sizeof(a1));
-        std::memcpy(&b1, pb + i + 8,  sizeof(b1));
-        std::memcpy(&a2, pa + i + 16, sizeof(a2));
-        std::memcpy(&b2, pb + i + 16, sizeof(b2));
-        std::memcpy(&a3, pa + i + 24, sizeof(a3));
-        std::memcpy(&b3, pb + i + 24, sizeof(b3));
-
-        const std::uint64_t e0 = a0 | b0;
-        const std::uint64_t e1 = a1 | b1;
-        const std::uint64_t e2 = a2 | b2;
-        const std::uint64_t e3 = a3 | b3;
-
-        const std::uint64_t o0 =
-            (e0 & kEitherMask) | (~e0 & kNotEitherMask) | kConstMask;
-        const std::uint64_t o1 =
-            (e1 & kEitherMask) | (~e1 & kNotEitherMask) | kConstMask;
-        const std::uint64_t o2 =
-            (e2 & kEitherMask) | (~e2 & kNotEitherMask) | kConstMask;
-        const std::uint64_t o3 =
-            (e3 & kEitherMask) | (~e3 & kNotEitherMask) | kConstMask;
-
-        std::memcpy(r + i + 0,  &o0, sizeof(o0));
-        std::memcpy(r + i + 8,  &o1, sizeof(o1));
-        std::memcpy(r + i + 16, &o2, sizeof(o2));
-        std::memcpy(r + i + 24, &o3, sizeof(o3));
+        for (auto& worker : workers) {
+            worker.join();
+        }
+    } else {
+        compute_chunks(0, chunks);
     }
 
-    // Process remaining 8-byte blocks.
-    for (; i + 7 < n; i += 8) {
-        std::uint64_t av;
-        std::uint64_t bv;
-
-        std::memcpy(&av, pa + i, sizeof(av));
-        std::memcpy(&bv, pb + i, sizeof(bv));
-
-        const std::uint64_t e = av | bv;
-        const std::uint64_t out =
-            (e & kEitherMask) | (~e & kNotEitherMask) | kConstMask;
-
-        std::memcpy(r + i, &out, sizeof(out));
-    }
-
-    // Scalar tail.
-    for (; i < n; ++i) {
-        const auto ua = static_cast<std::uint8_t>(pa[i]);
-        const auto ub = static_cast<std::uint8_t>(pb[i]);
-
-        const auto either = static_cast<std::uint8_t>(ua | ub);
-        const auto out = static_cast<std::uint8_t>(
-            (either & 0x18u) | ((~either) & 0x81u) | 0x24u
-        );
-
-        r[i] = static_cast<std::int8_t>(out);
+    for (std::size_t i = tail_start; i < n; ++i) {
+        const auto ua = static_cast<std::uint8_t>(a[i]);
+        const auto ub = static_cast<std::uint8_t>(b[i]);
+        result[i] = static_cast<std::int8_t>(((ua | ub) & kSelect8) ^ kFlip8);
     }
 }
+
 
 void naive_bitwise_wrapper(void *ctx) {
     auto &args = *static_cast<bitwise_args *>(ctx);

@@ -48,47 +48,40 @@ void stu_matmul(std::vector<float>& C,
                 const std::vector<float>& A,
                 const std::vector<float>& B,
                 int n) {
-    // TODO: Implement your version, and call it in stu_matmul_wrapper
-
     std::fill(C.begin(), C.end(), 0.0f);
+    constexpr int BLOCK_SIZE = 64;
+    const float* a = A.data();
+    const float* b = B.data();
+    float* c = C.data();
 
-    const float* __restrict__ a = A.data();
-    const float* __restrict__ b = B.data();
-    float* __restrict__ c = C.data();
+    for (int i = 0; i < n; i += BLOCK_SIZE) {
+        for (int k = 0; k < n; k += BLOCK_SIZE) {
+            for (int j = 0; j < n; j += BLOCK_SIZE) {
 
-    constexpr int BS = 32;
+                int i_end = std::min(i + BLOCK_SIZE, n);
+                int k_end = std::min(k + BLOCK_SIZE, n);
+                int j_end = std::min(j + BLOCK_SIZE, n);
 
-    for (int ii = 0; ii < n; ii += BS) {
-        const int i_end = std::min(ii + BS, n);
+                for (int ii = i; ii < i_end; ++ii) {
+                    float* c_row = c + static_cast<std::size_t>(ii) * n;
+                    const float* a_row = a + static_cast<std::size_t>(ii) * n;
+                    for (int kk = k; kk < k_end; ++kk) {
+                        const float a_val = a_row[kk];
+                        const float* b_row = b + static_cast<std::size_t>(kk) * n;
 
-        for (int kk = 0; kk < n; kk += BS) {
-            const int k_end = std::min(kk + BS, n);
-
-            for (int jj = 0; jj < n; jj += BS) {
-                const int j_end = std::min(jj + BS, n);
-
-                for (int i = ii; i < i_end; ++i) {
-                    const int i_base = i * n;
-
-                    for (int k = kk; k < k_end; ++k) {
-                        const float aik = a[i_base + k];
-                        const int k_base = k * n;
-
-                        int j = jj;
-
-                        for (; j + 7 < j_end; j += 8) {
-                            c[i_base + j + 0] += aik * b[k_base + j + 0];
-                            c[i_base + j + 1] += aik * b[k_base + j + 1];
-                            c[i_base + j + 2] += aik * b[k_base + j + 2];
-                            c[i_base + j + 3] += aik * b[k_base + j + 3];
-                            c[i_base + j + 4] += aik * b[k_base + j + 4];
-                            c[i_base + j + 5] += aik * b[k_base + j + 5];
-                            c[i_base + j + 6] += aik * b[k_base + j + 6];
-                            c[i_base + j + 7] += aik * b[k_base + j + 7];
+                        int jj = j;
+                        for (; jj + 7 < j_end; jj += 8) {
+                            c_row[jj] += a_val * b_row[jj];
+                            c_row[jj + 1] += a_val * b_row[jj + 1];
+                            c_row[jj + 2] += a_val * b_row[jj + 2];
+                            c_row[jj + 3] += a_val * b_row[jj + 3];
+                            c_row[jj + 4] += a_val * b_row[jj + 4];
+                            c_row[jj + 5] += a_val * b_row[jj + 5];
+                            c_row[jj + 6] += a_val * b_row[jj + 6];
+                            c_row[jj + 7] += a_val * b_row[jj + 7];
                         }
-
-                        for (; j < j_end; ++j) {
-                            c[i_base + j] += aik * b[k_base + j];
+                        for (; jj < j_end; ++jj) {
+                            c_row[jj] += a_val * b_row[jj];
                         }
                     }
                 }
