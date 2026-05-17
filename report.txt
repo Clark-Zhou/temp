@@ -1,0 +1,191 @@
+5. Optimization Methods and Results
+5.1 Relu 
+
+(a) Naive bottleneck
+
+The naive Relu iterates through the input array and uses a branch for each element:
+
+    if (value < 0.0f) {
+        value - 0.0f;
+    }
+
+SInce the input values are generated from a normal distribution with mean 0, about half of the values are negative, 
+and half of values are positive. This makes the branch outcome hard to predict, and then cause pipeline stalls.
+
+(b) Optimization strategy
+
+The optimized version removes the explicit branch in the hot
+loop by using a branch less conditional expression;
+
+    p[i] = x < 0.0f ? 0.0f : x;
+
+The loop is also unrooled to precess 16 elements ooer iteration. 
+This reduce loop overheadand gives the compiler more opportunities to generate branchless. or vectorized insts.
+
+(c) Why it works
+
+The relu op is equivalent to:
+
+    max(x, 0)
+
+This op does not require an actual control-flow branch.
+The cimpiler can generate cinditional move insts or SIMD max insts instead if unpredictable branches.
+
+Loop unrolling further reduces the # of loop cindition checks
+and improves instruction level parallelism,
+
+(d) Correctness
+
+No need maybe? It so obvious hahaha.
+
+if the value is negative, it is replaced with 0.0f
+if it is non-neg, keep unchanged.
+
+(e) Performance Results
+
+Naive(all): 1495826ns
+Naive(sigle): 1549549ns
+Baseline: 550000ns
+Stu: 372948ns
+
+vs naive(naive):4.01x
+vs naive(single):4.15x
+vs baseline:1.47x
+Status:passed
+
+5.2 Bitwise
+(a) Naive bottleneck
+
+The naive implementation processe only one int8_t element per loop iteration.
+For each element, it computes serveral intermediate bitwise expressions, including
+AND, OR, XOR, NOT, and multiple mask operations. Since each element is independent, the scalar loop
+fails to exploit data parallelism and has high per-element inst overhead.
+
+(b) Optimization strategy
+The optimized implementation uses 64-bit packing to process 8 int8_t elements at once. Since the computation consists only of bitwise operations, eight 8-bit values can be packed into one uint64_t word and computed in parallel using regular 64-bit bitwise instructions.
+
+The original expression is also simplified using the constant masks. For each byte, the output can be rewritten as:
+
+    either = a | b
+    result = (either & 0x18) | (~either & 0x81) | 0x24
+
+The byte masks are repeated across a 64-bit word:
+
+    0x1818181818181818
+    0x8181818181818181
+    0x2424242424242424
+
+This allows the same simplified expression to be applied to 8 elements simultaneously.
+
+(c) Why it works
+
+Bitwise operations are independent for each bit and do not create carries between bytes. Therefore, applying AND, OR, XOR, and NOT to a 64-bit packed word is equivalent to applying the same operations separately to each of the eight int8_t elements.
+
+The optimization improves performance because it reduces the number of loop iterations by a factor of 8 and uses the CPU's native 64-bit datapath to compute multiple elements in parallel. The simplified expression also reduces the number of bitwise operations required per element.
+
+(d) Correctness
+
+The optimized implementation preserves the same output as the naive version. The original formula was simplified bit-by-bit using the fixed masks 0x5A and 0xC3. For every bit position, the simplified expression produces the same result as the original mixed0 and mixed1 computation.
+
+For the main loop, each uint64_t word contains exactly 8 consecutive int8_t values. Since all operations are bitwise and independent across bits, the packed computation is equivalent to computing the result byte by byte. The remaining elements are handled by a scalar tail loop using the same simplified formula.
+
+(e) Performance result
+
+Naive Bitwise time: 2,140,467 ns
+Baseline time: 250,000 ns
+Required speedup lower bound: 8.00x
+
+Required maximum student time:
+
+    2,140,467 / 8.00 = 267,558 ns
+
+Student Bitwise time: [fill in server result] ns
+Speedup over naive: [2,140,467 / student_time]x
+Status: [PASSED / FAILED]
+
+5.3 matmul
+(a) Naive bottleneck
+
+The naive matrix multiplication uses the loop order i-j-k. Matrix A is accessed contiguously along each row, but matrix B is accessed with a large stride because B[k * n + j] jumps between rows as k changes. This causes poor cache locality and many cache misses.
+
+(b) Optimization strategy
+
+The optimized version uses cache blocking and changes the computation order inside each block. The matrix is divided into 32 x 32 tiles. Within each tile, the loop order is arranged as i-k-j so that B is accessed contiguously along rows and C is updated contiguously.
+
+The inner j loop is also manually unrolled by 8 elements to reduce loop overhead and expose more instruction-level parallelism.
+
+(c) Why it works
+
+Blocking keeps smaller portions of A, B, and C in cache while they are reused. The i-k-j order improves spatial locality for B because consecutive j values access consecutive memory locations in B. It also updates consecutive elements of C, improving cache line utilization.
+
+For a 512 x 512 matrix, this significantly reduces cache misses compared with the naive i-j-k order.
+
+(d) Correctness
+
+The optimized implementation computes the same mathematical result C = A x B. C is initialized to zero before accumulation, and each output element C[i][j] accumulates A[i][k] * B[k][j] over all k. Blocking changes the traversal order but not the matrix multiplication formula.
+
+(e) Performance result
+
+Naive MatMul time: 207,163,527 ns
+Baseline time: 88,000,000 ns
+
+Student MatMul time: [fill in server result] ns
+Speedup over naive: [207,163,527 / student_time]x
+Status: [PASSED / FAILED]
+
+5.4 image_proc
+(a) Naive bottleneck
+
+The naive implementation calls many small helper functions for every pixel, including color_correct, compute_gray, enhance_contrast, hdr_compress, complex_mask_logic, and importance_weight. These functions are marked as noinline, so the compiler cannot inline them automatically. As a result, each pixel causes many function calls, which adds significant call overhead.
+
+(b) Optimization strategy
+
+The optimized implementation manually inlines the helper function bodies inside stu_image_proc. Instead of calling the noinline functions repeatedly, it directly performs the same computations in the main pixel loop.
+
+(c) Why it works
+
+The computation for each pixel is independent. Manually inlining removes function call overhead and exposes the full computation to the compiler. This allows better instruction scheduling and avoids repeated call/return overhead in the hot loop.
+
+(d) Correctness
+
+The optimized version preserves the same computation order and constants as the naive helper functions. Each pixel still performs color correction, grayscale conversion, contrast enhancement, HDR compression, mask computation, importance weighting, and final clamping. The output is compared against the naive reference with the original checker.
+
+(e) Performance result
+
+Naive Image Proc time: 77,628,825 ns
+Baseline time: 43,000,000 ns
+
+Student Image Proc time: [fill in server result] ns
+Speedup over naive: [77,628,825 / student_time]x
+Status: [PASSED / FAILED]
+
+
+
+5.5 grff
+(a) Naive bottleneck
+
+The naive GRFF implementation splits the feature computation into many sequential stages. It allocates several intermediate arrays, including G, A_prime, Smooth_A, B_prime, C_prime, H, and E. Each stage scans the whole array, causing repeated memory reads and writes.
+
+(b) Optimization strategy
+
+The optimized version applies loop fusion. Stage 1, Stage 2, and the sum computation for Stage 3 are fused into one loop. After avg_a is known, Stage 4 through Stage 9 are fused into a second loop. The optimized implementation only keeps the intermediate arrays that are actually needed across the global dependency: G and A_prime.
+
+(c) Why it works
+
+The only global dependency is avg_a, which depends on all A_prime values. Therefore, at least one full pass is needed before the final stages. However, after avg_a is computed, Smooth_A, B_prime, C_prime, H, E, and the final ReLU output can all be computed element by element without storing separate intermediate arrays.
+
+This reduces memory traffic, avoids unnecessary temporary buffers, and improves cache locality.
+
+(d) Correctness
+
+The optimized implementation preserves the same data dependencies as the naive version. It first computes the same G and A_prime values and uses them to compute the same avg_a. Then, for each element, it computes Smooth_A, B_prime, C_prime, H, E, and the final ReLU output in the same logical order as the naive implementation.
+
+(e) Performance result
+
+Naive GRFF time: 16,417,330 ns
+Baseline time: 8,500,000 ns
+
+Student GRFF time: [fill in server result] ns
+Speedup over naive: [16,417,330 / student_time]x
+Status: [PASSED / FAILED]
+
