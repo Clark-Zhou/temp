@@ -126,176 +126,75 @@ void stu_BlkSchls(std::vector<float> &CallOptionPrice,
     // TODO:
     // Implement your version for BlkSchls here, then 
     // call it at stu_BlkSchls_wrapper()...
-    const size_t n = spotPrice.size();
+    const std::size_t n = spotPrice.size();
 
-    float* __restrict__ call = CallOptionPrice.data();
-    float* __restrict__ put = PutOptionPrice.data();
+    float *call = CallOptionPrice.data();
+    float *put = PutOptionPrice.data();
+    const float *spot = spotPrice.data();
+    const float *strike_ptr = strike.data();
+    const float *rate_ptr = rate.data();
+    const float *vol = volatility.data();
+    const float *t = time.data();
 
-    const float* __restrict__ spot = spotPrice.data();
-    const float* __restrict__ stk = strike.data();
-    const float* __restrict__ rt = rate.data();
-    const float* __restrict__ vol = volatility.data();
-    const float* __restrict__ tm = time.data();
+    for (std::size_t i = 0; i < n; ++i) {
+        const float sqrt_time = std::sqrt(t[i]);
+        const float log_term = std::log(spot[i] / strike_ptr[i]);
+        const float vol_i = vol[i];
+        const float vol_sqrt_time = vol_i * sqrt_time;
+        const float d1 =
+            (log_term + (rate_ptr[i] + 0.5f * vol_i * vol_i) * t[i]) /
+            vol_sqrt_time;
+        const float d2 = d1 - vol_sqrt_time;
 
-    auto fast_log_ratio = [](float s, float k) -> float {
-        /*
-         * log(s / k) using:
-         *   log(z) = 2 * (y + y^3/3 + y^5/5 + ...)
-         * where:
-         *   y = (z - 1) / (z + 1)
-         *
-         * In this benchmark, s and k are both in [50.0, 99.9],
-         * so z is roughly in [0.5, 2.0], and |y| <= about 1/3.
-         * The series converges quickly in this range.
-         */
-        const float z = s / k;
-        const float y = (z - 1.0f) / (z + 1.0f);
-        const float y2 = y * y;
+        float cnd_input = d1;
+        bool negative = cnd_input < 0.0f;
+        cnd_input = negative ? -cnd_input : cnd_input;
+        const float xNPrimeofX1 =
+            std::exp(-0.5f * cnd_input * cnd_input) * inv_sqrt_2xPI;
+        const float k1 = 1.0f / (1.0f + p_val * cnd_input);
+        const float local1 =
+            1.0f -
+            (((((coefficient_a5 * k1 + coefficient_a4) * k1 +
+                coefficient_a3) *
+                k1 +
+            coefficient_a2) *
+                k1 +
+            coefficient_a1) *
+            k1) *
+                xNPrimeofX1;
+        const float nd1 = negative ? (1.0f - local1) : local1;
 
-        const float poly =
-            1.0f
-            + y2 * (1.0f / 3.0f
-            + y2 * (1.0f / 5.0f
-            + y2 * (1.0f / 7.0f
-            + y2 * (1.0f / 9.0f
-            + y2 * (1.0f / 11.0f)))));
+        cnd_input = d2;
+        negative = cnd_input < 0.0f;
+        cnd_input = negative ? -cnd_input : cnd_input;
+        const float xNPrimeofX2 =
+            std::exp(-0.5f * cnd_input * cnd_input) * inv_sqrt_2xPI;
+        const float k2 = 1.0f / (1.0f + p_val * cnd_input);
+        const float local2 =
+            1.0f -
+            (((((coefficient_a5 * k2 + coefficient_a4) * k2 +
+                coefficient_a3) *
+                k2 +
+            coefficient_a2) *
+                k2 +
+            coefficient_a1) *
+            k2) *
+                xNPrimeofX2;
+        const float nd2 = negative ? (1.0f - local2) : local2;
 
-        return 2.0f * y * poly;
-    };
+        const float rt = rate_ptr[i] * t[i];
+        const float rt2 = rt * rt;
+        const float rt3 = rt2 * rt;
+        const float rt4 = rt2 * rt2;
+        const float rt5 = rt4 * rt;
+        const float discount =
+            1.0f - rt + 0.5f * rt2 - (1.0f / 6.0f) * rt3 +
+            (1.0f / 24.0f) * rt4 - (1.0f / 120.0f) * rt5;
+        const float future_value = strike_ptr[i] * discount;
 
-    auto fast_discount_exp = [](float x) -> float {
-        /*
-         * Approximate exp(-x), where x = rate * time.
-         * In this benchmark, rate is in [0.0275, 0.1] and time is in [0.1, 1.0],
-         * so x is small. A short Taylor expansion is accurate enough.
-         */
-        const float x2 = x * x;
-        const float x3 = x2 * x;
-        const float x4 = x2 * x2;
-        const float x5 = x4 * x;
-        const float x6 = x3 * x3;
-
-        return 1.0f
-            - x
-            + 0.5f * x2
-            - (1.0f / 6.0f) * x3
-            + (1.0f / 24.0f) * x4
-            - (1.0f / 120.0f) * x5
-            + (1.0f / 720.0f) * x6;
-    };
-
-    auto cndf_inline = [](float input) -> float {
-        int sign = 0;
-        float x = input;
-
-        if (x < 0.0f) {
-            x = -x;
-            sign = 1;
-        }
-
-        // For very large x, the CDF rounds to 1.0f or 0.0f in float anyway.
-        if (x > 8.0f) {
-            return sign ? 0.0f : 1.0f;
-        }
-
-        const float xNPrimeofX =
-            std::exp(-0.5f * x * x) * static_cast<float>(inv_sqrt_2xPI);
-
-        const float k = 1.0f / (1.0f + static_cast<float>(p_val) * x);
-        const float k_2 = k * k;
-        const float k_3 = k_2 * k;
-        const float k_4 = k_3 * k;
-        const float k_5 = k_4 * k;
-
-        float local = k * static_cast<float>(coefficient_a1);
-        local += k_2 * static_cast<float>(coefficient_a2);
-        local += k_3 * static_cast<float>(coefficient_a3);
-        local += k_4 * static_cast<float>(coefficient_a4);
-        local += k_5 * static_cast<float>(coefficient_a5);
-        local = 1.0f - local * xNPrimeofX;
-
-        return sign ? (1.0f - local) : local;
-    };
-
-    size_t i = 0;
-
-    for (; i + 1 < n; i += 2) {
-        {
-            const float s = spot[i];
-            const float k = stk[i];
-            const float r = rt[i];
-            const float v = vol[i];
-            const float t = tm[i];
-
-            const float sqrt_t = std::sqrt(t);
-            const float log_term = fast_log_ratio(s, k);
-            const float power_term = 0.5f * v * v;
-
-            const float den = v * sqrt_t;
-            const float d1 = ((r + power_term) * t + log_term) / den;
-            const float d2 = d1 - den;
-
-            const float nd1 = cndf_inline(d1);
-            const float nd2 = cndf_inline(d2);
-
-            const float future = k * fast_discount_exp(r * t);
-
-            call[i] = (s * nd1) - (future * nd2);
-            put[i] = (future * (1.0f - nd2)) - (s * (1.0f - nd1));
-        }
-
-        {
-            const size_t j = i + 1;
-
-            const float s = spot[j];
-            const float k = stk[j];
-            const float r = rt[j];
-            const float v = vol[j];
-            const float t = tm[j];
-
-            const float sqrt_t = std::sqrt(t);
-            const float log_term = fast_log_ratio(s, k);
-            const float power_term = 0.5f * v * v;
-
-            const float den = v * sqrt_t;
-            const float d1 = ((r + power_term) * t + log_term) / den;
-            const float d2 = d1 - den;
-
-            const float nd1 = cndf_inline(d1);
-            const float nd2 = cndf_inline(d2);
-
-            const float future = k * fast_discount_exp(r * t);
-
-            call[j] = (s * nd1) - (future * nd2);
-            put[j] = (future * (1.0f - nd2)) - (s * (1.0f - nd1));
-        }
+        call[i] = spot[i] * nd1 - future_value * nd2;
+        put[i] = future_value * (1.0f - nd2) - spot[i] * (1.0f - nd1);
     }
-
-    for (; i < n; ++i) {
-        const float s = spot[i];
-        const float k = stk[i];
-        const float r = rt[i];
-        const float v = vol[i];
-        const float t = tm[i];
-
-        const float sqrt_t = std::sqrt(t);
-        const float log_term = fast_log_ratio(s, k);
-        const float power_term = 0.5f * v * v;
-
-        const float den = v * sqrt_t;
-        const float d1 = ((r + power_term) * t + log_term) / den;
-        const float d2 = d1 - den;
-
-        const float nd1 = cndf_inline(d1);
-        const float nd2 = cndf_inline(d2);
-
-        const float future = k * fast_discount_exp(r * t);
-
-        call[i] = (s * nd1) - (future * nd2);
-        put[i] = (future * (1.0f - nd2)) - (s * (1.0f - nd1));
-    }
-
-
 }
 
 void naive_BlkSchls_wrapper(void *ctx) {
