@@ -126,14 +126,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_BLACKSCHOLES});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Black-Scholes",
-                       nullptr,
-                       naive_BlkSchls_wrapper,
-                       BlkSchls_check,
-                       nullptr,
-                       &black_args_ref,
-                       BASELINE_BLACKSCHOLES,
-                       NAIVE_SPEEDUP_LOWER_BOUND_BLACKSCHOLES});
+        //run_benchmark({"Black-Scholes",
+          //             nullptr,
+            //           naive_BlkSchls_wrapper,
+              //         BlkSchls_check,
+                //       nullptr,
+                  //     &black_args_ref,
+                    //   BASELINE_BLACKSCHOLES,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_BLACKSCHOLES});
     }
 
     {
@@ -156,14 +156,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_SPARSE_SPMM});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Sparse SpMM",
-                       nullptr,
-                       naive_sparse_spmm_wrapper,
-                       sparse_spmm_check,
-                       nullptr,
-                       &sparse_args_ref,
-                       BASELINE_SPARSE_SPMM,
-                       NAIVE_SPEEDUP_LOWER_BOUND_SPARSE_SPMM});
+        //run_benchmark({"Sparse SpMM",
+          //             nullptr,
+            //           naive_sparse_spmm_wrapper,
+              //         sparse_spmm_check,
+                //       nullptr,
+                  //     &sparse_args_ref,
+                    //   BASELINE_SPARSE_SPMM,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_SPARSE_SPMM});
     }
 
     {
@@ -185,14 +185,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_RELU});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"ReLU",
-                       nullptr,
-                       naive_relu_wrapper,
-                       relu_check,
-                       nullptr,
-                       &relu_args_ref,
-                       BASELINE_RELU,
-                       NAIVE_SPEEDUP_LOWER_BOUND_RELU});
+        //run_benchmark({"ReLU",
+          //             nullptr,
+            //           naive_relu_wrapper,
+              //         relu_check,
+                //       nullptr,
+                  //     &relu_args_ref,
+                    //   BASELINE_RELU,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_RELU});
     }
 
     {
@@ -214,14 +214,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_BITWISE});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Bitwise",
-                       nullptr,
-                       naive_bitwise_wrapper,
-                       bitwise_check,
-                       nullptr,
-                       &bitwise_args_ref,
-                       BASELINE_BITWISE,
-                       NAIVE_SPEEDUP_LOWER_BOUND_BITWISE});
+        //run_benchmark({"Bitwise",
+          //             nullptr,
+            //           naive_bitwise_wrapper,
+              //         bitwise_check,
+                //       nullptr,
+                  //     &bitwise_args_ref,
+                    //   BASELINE_BITWISE,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_BITWISE});
     }
 
     {
@@ -242,14 +242,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_MATMUL});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"MatMul",
-                       nullptr,
-                       naive_matmul_wrapper,
-                       matmul_check,
-                       nullptr,
-                       &matmul_args_ref,
-                       BASELINE_MATMUL,
-                       NAIVE_SPEEDUP_LOWER_BOUND_MATMUL});
+        //run_benchmark({"MatMul",
+          //             nullptr,
+            //           naive_matmul_wrapper,
+              //         matmul_check,
+                //       nullptr,
+                  //     &matmul_args_ref,
+                    //   BASELINE_MATMUL,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_MATMUL});
     }
 
     {
@@ -271,14 +271,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_TRACE_REPLAY});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Trace Replay",
-                       nullptr,
-                       naive_trace_replay_wrapper,
-                       trace_replay_check,
-                       nullptr,
-                       &trace_args_ref,
-                       BASELINE_TRACE_REPLAY,
-                       NAIVE_SPEEDUP_LOWER_BOUND_TRACE_REPLAY});
+        //run_benchmark({"Trace Replay",
+          //             nullptr,
+            //           naive_trace_replay_wrapper,
+              //         trace_replay_check,
+                //       nullptr,
+                  //     &trace_args_ref,
+                    //   BASELINE_TRACE_REPLAY,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_TRACE_REPLAY});
     }
 
     {
@@ -296,6 +296,8 @@ int main() {
          graph_args graph_args_stu;
          initialize_graph(&graph_args_stu, graph_node_count, graph_avg_degree, seed);
          convert_graph_to_csr(graph_args_stu.graph_csr, graph_args_stu.graph);
+
+         convert_graph_to_csr(graph_args_stu.graph_csr, graph_args_stu.graph);
          run_benchmark({"Graph",
                         stu_graph_wrapper,
                         naive_graph_wrapper,
@@ -306,14 +308,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_GRAPH});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Graph",
-                       nullptr,
-                       naive_graph_wrapper,
-                       graph_check,
-                       nullptr,
-                       &graph_args_ref,
-                       BASELINE_GRAPH,
-                       NAIVE_SPEEDUP_LOWER_BOUND_GRAPH});
+        //run_benchmark({"Graph",
+          //             nullptr,
+            //           naive_graph_wrapper,
+              //         graph_check,
+                //       nullptr,
+                  //     &graph_args_ref,
+                    //   BASELINE_GRAPH,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_GRAPH});
     }
 
     {
@@ -336,14 +338,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_GRFF});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"GRFF",
-                       nullptr,
-                       naive_grff_wrapper,
-                       grff_check,
-                       nullptr,
-                       &grff_args_ref,
-                       BASELINE_GRFF,
-                       NAIVE_SPEEDUP_LOWER_BOUND_GRFF});
+        //run_benchmark({"GRFF",
+          //             nullptr,
+            //           naive_grff_wrapper,
+              //         grff_check,
+                //       nullptr,
+                  //     &grff_args_ref,
+                    //   BASELINE_GRFF,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_GRFF});
     }
 
     {
@@ -367,14 +369,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_IMAGE_PROC});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Image Proc",
-                       nullptr,
-                       naive_image_proc_wrapper,
-                       image_proc_check,
-                       nullptr,
-                       &image_args_ref,
-                       BASELINE_IMAGE_PROC,
-                       NAIVE_SPEEDUP_LOWER_BOUND_IMAGE_PROC});
+        //run_benchmark({"Image Proc",
+          //             nullptr,
+            //           naive_image_proc_wrapper,
+              //         image_proc_check,
+                //       nullptr,
+                  //     &image_args_ref,
+                    //   BASELINE_IMAGE_PROC,
+                      // NAIVE_SPEEDUP_LOWER_BOUND_IMAGE_PROC});
     }
 
     {
@@ -390,8 +392,6 @@ int main() {
         // TODO: Uncomment this block when the student implementation exists.
          filter_gradient_args filter_gradient_args_stu;
          initialize_filter_gradient(&filter_gradient_args_stu, width, height, seed);
-         convert_soa_to_aos(filter_gradient_args_stu.aos_data,
-                            filter_gradient_args_stu.data);
          run_benchmark({"Filter Gradient",
                         stu_filter_gradient_wrapper,
                         naive_filter_gradient_wrapper,
@@ -402,14 +402,14 @@ int main() {
                         NAIVE_SPEEDUP_LOWER_BOUND_FILTER_GRADIENT});
 
         // TODO: Comment this block when the student implementation exists:
-        run_benchmark({"Filter Gradient",
-                       nullptr,
-                       naive_filter_gradient_wrapper,
-                       filter_gradient_check,
-                       nullptr,
-                       &filter_gradient_args_ref,
-                       BASELINE_FILTER_GRADIENT,
-                       NAIVE_SPEEDUP_LOWER_BOUND_FILTER_GRADIENT});
+        //run_benchmark({"Filter Gradient",
+        //               nullptr,
+          //             naive_filter_gradient_wrapper,
+            //           filter_gradient_check,
+              //         nullptr,
+                //       &filter_gradient_args_ref,
+                  //     BASELINE_FILTER_GRADIENT,
+                    //   NAIVE_SPEEDUP_LOWER_BOUND_FILTER_GRADIENT});
     }
 
 #if GEOMETRIC_MEAN
