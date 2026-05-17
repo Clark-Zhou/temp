@@ -122,14 +122,9 @@ void naive_filter_gradient(float& out, const data_struct& data,
 }
 
 void stu_filter_gradient(float& out, const data_struct& data,
-                   std::size_t width, std::size_t height) {
-    // TODO: You may need to add a function to convert data structure (not 
-    // included in time measurement), then implement your version in 
-    // stu_filter_gradient, whch is called by stu_filter_gradient_wrapper.
-
+                         std::size_t width, std::size_t height) {
     const std::size_t W = width;
     const std::size_t H = height;
-
     constexpr float inv9 = 1.0f / 9.0f;
 
     const float* __restrict__ a = data.a.data();
@@ -140,71 +135,66 @@ void stu_filter_gradient(float& out, const data_struct& data,
     const float* __restrict__ f = data.f.data();
     const float* __restrict__ g = data.g.data();
     const float* __restrict__ h = data.h.data();
-    const float* __restrict__ ii = data.i.data();
+    const float* __restrict__ i_ch = data.i.data();
 
     double total = 0.0;
 
     for (std::size_t y = 1; y + 1 < H; ++y) {
-        const std::size_t ym1 = (y - 1) * W;
-        const std::size_t y0  = y * W;
-        const std::size_t yp1 = (y + 1) * W;
+        const std::size_t row_m = (y - 1) * W;
+        const std::size_t row_0 = y * W;
+        const std::size_t row_p = (y + 1) * W;
+
+        const float* __restrict__ am = a + row_m;
+        const float* __restrict__ a0 = a + row_0;
+        const float* __restrict__ ap = a + row_p;
+
+        const float* __restrict__ bm = b + row_m;
+        const float* __restrict__ b0 = b + row_0;
+        const float* __restrict__ bp = b + row_p;
+
+        const float* __restrict__ cm = c + row_m;
+        const float* __restrict__ c0 = c + row_0;
+        const float* __restrict__ cp = c + row_p;
+
+        const float* __restrict__ dm = d + row_m;
+        const float* __restrict__ d0 = d + row_0;
+        const float* __restrict__ dp = d + row_p;
+
+        const float* __restrict__ em = e + row_m;
+        const float* __restrict__ e0 = e + row_0;
+        const float* __restrict__ ep = e + row_p;
+
+        const float* __restrict__ fm = f + row_m;
+        const float* __restrict__ f0 = f + row_0;
+        const float* __restrict__ fp = f + row_p;
+
+        const float* __restrict__ gm = g + row_m;
+        const float* __restrict__ gp = g + row_p;
+
+        const float* __restrict__ hm = h + row_m;
+        const float* __restrict__ hp = h + row_p;
+
+        const float* __restrict__ im = i_ch + row_m;
+        const float* __restrict__ ip = i_ch + row_p;
 
         for (std::size_t x = 1; x + 1 < W; ++x) {
             const std::size_t xm1 = x - 1;
-            const std::size_t x0  = x;
             const std::size_t xp1 = x + 1;
 
-            // 3x3 box filter for channels a, b, c.
-            double sum_a = 0.0;
-            double sum_b = 0.0;
-            double sum_c = 0.0;
+            const double sum_a =
+                static_cast<double>(am[xm1]) + am[x] + am[xp1] +
+                static_cast<double>(a0[xm1]) + a0[x] + a0[xp1] +
+                static_cast<double>(ap[xm1]) + ap[x] + ap[xp1];
 
-            std::size_t idx;
+            const double sum_b =
+                static_cast<double>(bm[xm1]) + bm[x] + bm[xp1] +
+                static_cast<double>(b0[xm1]) + b0[x] + b0[xp1] +
+                static_cast<double>(bp[xm1]) + bp[x] + bp[xp1];
 
-            idx = ym1 + xm1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = ym1 + x0;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = ym1 + xp1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = y0 + xm1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = y0 + x0;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = y0 + xp1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = yp1 + xm1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = yp1 + x0;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
-
-            idx = yp1 + xp1;
-            sum_a += a[idx];
-            sum_b += b[idx];
-            sum_c += c[idx];
+            const double sum_c =
+                static_cast<double>(cm[xm1]) + cm[x] + cm[xp1] +
+                static_cast<double>(c0[xm1]) + c0[x] + c0[xp1] +
+                static_cast<double>(cp[xm1]) + cp[x] + cp[xp1];
 
             const float avg_a = static_cast<float>(sum_a * inv9);
             const float avg_b = static_cast<float>(sum_b * inv9);
@@ -212,40 +202,38 @@ void stu_filter_gradient(float& out, const data_struct& data,
 
             const float p1 = avg_a * avg_b + avg_c;
 
-            // Sobel-x for channels d, e, f.
             const float sobel_dx =
-                -d[ym1 + xm1] + d[ym1 + xp1]
-                -2.0f * d[y0 + xm1] + 2.0f * d[y0 + xp1]
-                -d[yp1 + xm1] + d[yp1 + xp1];
+                -dm[xm1] + dm[xp1]
+                -2.0f * d0[xm1] + 2.0f * d0[xp1]
+                -dp[xm1] + dp[xp1];
 
             const float sobel_ex =
-                -e[ym1 + xm1] + e[ym1 + xp1]
-                -2.0f * e[y0 + xm1] + 2.0f * e[y0 + xp1]
-                -e[yp1 + xm1] + e[yp1 + xp1];
+                -em[xm1] + em[xp1]
+                -2.0f * e0[xm1] + 2.0f * e0[xp1]
+                -ep[xm1] + ep[xp1];
 
             const float sobel_fx =
-                -f[ym1 + xm1] + f[ym1 + xp1]
-                -2.0f * f[y0 + xm1] + 2.0f * f[y0 + xp1]
-                -f[yp1 + xm1] + f[yp1 + xp1];
+                -fm[xm1] + fm[xp1]
+                -2.0f * f0[xm1] + 2.0f * f0[xp1]
+                -fp[xm1] + fp[xp1];
 
             const float p2 = sobel_dx * sobel_ex + sobel_fx;
 
-            // Sobel-y for channels g, h, i.
             const float sobel_gy =
-                -g[ym1 + xm1] - 2.0f * g[ym1 + x0] - g[ym1 + xp1]
-                + g[yp1 + xm1] + 2.0f * g[yp1 + x0] + g[yp1 + xp1];
+                -gm[xm1] - 2.0f * gm[x] - gm[xp1]
+                + gp[xm1] + 2.0f * gp[x] + gp[xp1];
 
             const float sobel_hy =
-                -h[ym1 + xm1] - 2.0f * h[ym1 + x0] - h[ym1 + xp1]
-                + h[yp1 + xm1] + 2.0f * h[yp1 + x0] + h[yp1 + xp1];
+                -hm[xm1] - 2.0f * hm[x] - hm[xp1]
+                + hp[xm1] + 2.0f * hp[x] + hp[xp1];
 
             const float sobel_iy =
-                -ii[ym1 + xm1] - 2.0f * ii[ym1 + x0] - ii[ym1 + xp1]
-                + ii[yp1 + xm1] + 2.0f * ii[yp1 + x0] + ii[yp1 + xp1];
+                -im[xm1] - 2.0f * im[x] - im[xp1]
+                + ip[xm1] + 2.0f * ip[x] + ip[xp1];
 
             const float p3 = sobel_gy * sobel_hy + sobel_iy;
 
-            total += p1 + p2 + p3;
+            total += static_cast<double>(p1 + p2 + p3);
         }
     }
 
