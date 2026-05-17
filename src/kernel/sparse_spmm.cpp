@@ -1,11 +1,14 @@
 #include "sparse_spmm.h"
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <random>
 #include <stdexcept>
+#include <thread>
 
 /*
 Sparse matrix LHS: csr.row x csr.col
@@ -212,90 +215,181 @@ void csr_spmm(const CSRMatrix &csr, const std::vector<float> &dense_t,
     }
 }
 
-static void stu_csr_spmm(const CSRMatrix &csr,
-                         const std::vector<float> &dense_t,
-                         std::vector<float> &out) {
-    const int rows = csr.rows;
-    const int cols = csr.cols;
-
-    const size_t dense_cols = dense_t.size() / static_cast<size_t>(cols);
-
-    const int* __restrict__ row_ptr = csr.row_ptr.data();
-    const int* __restrict__ col_idx = csr.col_idx.data();
-    const float* __restrict__ values = csr.values.data();
-    const float* __restrict__ dense = dense_t.data();
-    float* __restrict__ output = out.data();
-
-    constexpr size_t NC = 8;
-
-    for (int r = 0; r < rows; ++r) {
-        float* __restrict__ out_row =
-            output + static_cast<size_t>(r) * dense_cols;
-
-        const int row_begin = row_ptr[r];
-        const int row_end = row_ptr[r + 1];
-
-        size_t n = 0;
-
-        for (; n + NC - 1 < dense_cols; n += NC) {
-            float acc0 = 0.0f;
-            float acc1 = 0.0f;
-            float acc2 = 0.0f;
-            float acc3 = 0.0f;
-            float acc4 = 0.0f;
-            float acc5 = 0.0f;
-            float acc6 = 0.0f;
-            float acc7 = 0.0f;
-
-            for (int p = row_begin; p < row_end; ++p) {
-                const int col = col_idx[p];
-                const float v = values[p];
-
-                acc0 += v * dense[(n + 0) * static_cast<size_t>(cols) + col];
-                acc1 += v * dense[(n + 1) * static_cast<size_t>(cols) + col];
-                acc2 += v * dense[(n + 2) * static_cast<size_t>(cols) + col];
-                acc3 += v * dense[(n + 3) * static_cast<size_t>(cols) + col];
-                acc4 += v * dense[(n + 4) * static_cast<size_t>(cols) + col];
-                acc5 += v * dense[(n + 5) * static_cast<size_t>(cols) + col];
-                acc6 += v * dense[(n + 6) * static_cast<size_t>(cols) + col];
-                acc7 += v * dense[(n + 7) * static_cast<size_t>(cols) + col];
-            }
-
-            out_row[n + 0] = acc0;
-            out_row[n + 1] = acc1;
-            out_row[n + 2] = acc2;
-            out_row[n + 3] = acc3;
-            out_row[n + 4] = acc4;
-            out_row[n + 5] = acc5;
-            out_row[n + 6] = acc6;
-            out_row[n + 7] = acc7;
-        }
-
-        for (; n < dense_cols; ++n) {
-            const float* __restrict__ dense_row =
-                dense + n * static_cast<size_t>(cols);
-
-            float acc = 0.0f;
-
-            for (int p = row_begin; p < row_end; ++p) {
-                acc += values[p] * dense_row[col_idx[p]];
-            }
-
-            out_row[n] = acc;
-        }
-    }
-}
-
-
 void naive_sparse_spmm_wrapper(void *ctx) {
     auto &args = *static_cast<sparse_spmm_args *>(ctx);
     csr_spmm(args.csr, args.dense_t, args.out);
 }
 
 // TODO: Implement your version (e.g. stu_csr_spmm), and call it in stu_sparse_spmm_wrapper
+
+void stu_csr_spmm(const CSRMatrix &csr, const std::vector<float> &dense_t,
+                  std::vector<float> &out) {
+    if (!validate_csr(csr)) {
+        throw std::invalid_argument("stu_csr_spmm: invalid CSR matrix.");
+    }
+
+    const int rows = csr.rows;
+    const int cols = csr.cols;
+    if (rows == 0 || cols == 0) {
+        return;
+    }
+    if (dense_t.size() % static_cast<std::size_t>(cols) != 0) {
+        throw std::invalid_argument(
+            "stu_csr_spmm: dense_t.size() must be a multiple of csr.cols.");
+    }
+
+    const int dense_cols = static_cast<int>(dense_t.size() / cols);
+    if (out.size() != static_cast<std::size_t>(rows) * dense_cols) {
+        throw std::invalid_argument("stu_csr_spmm: out size mismatch.");
+    }
+
+    const int *row_ptr = csr.row_ptr.data();
+    const int *col_idx = csr.col_idx.data();
+    const float *values = csr.values.data();
+    const float *dense = dense_t.data();
+    float *output = out.data();
+
+    int r = 0;
+    for (; r + 3 < rows; r += 4) {
+        const int row0_begin = row_ptr[r];
+        const int row0_end = row_ptr[r + 1];
+        const int row1_begin = row_ptr[r + 1];
+        const int row1_end = row_ptr[r + 2];
+        const int row2_begin = row_ptr[r + 2];
+        const int row2_end = row_ptr[r + 3];
+        const int row3_begin = row_ptr[r + 3];
+        const int row3_end = row_ptr[r + 4];
+
+        float *out0 = output + static_cast<std::size_t>(r) * dense_cols;
+        float *out1 = out0 + dense_cols;
+        float *out2 = out1 + dense_cols;
+        float *out3 = out2 + dense_cols;
+
+        for (int n = 0; n < dense_cols; ++n) {
+            const float *dense_row = dense + static_cast<std::size_t>(n) * cols;
+            float acc0 = 0.0f;
+            float acc1 = 0.0f;
+            float acc2 = 0.0f;
+            float acc3 = 0.0f;
+
+            for (int p = row0_begin; p < row0_end; ++p) {
+                acc0 += values[p] * dense_row[col_idx[p]];
+            }
+            for (int p = row1_begin; p < row1_end; ++p) {
+                acc1 += values[p] * dense_row[col_idx[p]];
+            }
+            for (int p = row2_begin; p < row2_end; ++p) {
+                acc2 += values[p] * dense_row[col_idx[p]];
+            }
+            for (int p = row3_begin; p < row3_end; ++p) {
+                acc3 += values[p] * dense_row[col_idx[p]];
+            }
+
+            out0[n] = acc0;
+            out1[n] = acc1;
+            out2[n] = acc2;
+            out3[n] = acc3;
+        }
+    }
+
+    for (; r < rows; ++r) {
+        float *out_row = output + static_cast<std::size_t>(r) * dense_cols;
+        const int row_begin = row_ptr[r];
+        const int row_end = row_ptr[r + 1];
+
+        for (int n = 0; n < dense_cols; ++n) {
+            const float *dense_row = dense + static_cast<std::size_t>(n) * cols;
+            float acc = 0.0f;
+            for (int p = row_begin; p < row_end; ++p) {
+                acc += values[p] * dense_row[col_idx[p]];
+            }
+            out_row[n] = acc;
+        }
+    }
+}
+
 void stu_sparse_spmm_wrapper(void *ctx) {
     auto &args = *static_cast<sparse_spmm_args *>(ctx);
-    stu_csr_spmm(args.csr, args.dense_t, args.out);
+    const CSRMatrix& csr = args.csr;
+
+    if (!validate_csr(csr) || csr.rows <= 0 || csr.cols <= 0) {
+        stu_csr_spmm(csr, args.dense_t, args.out);
+        return;
+    }
+
+    const int rows = csr.rows;
+    const int cols = csr.cols;
+    const int dense_cols = static_cast<int>(args.dense_t.size() / cols);
+    if (dense_cols <= 0 ||
+        args.out.size() != static_cast<std::size_t>(rows) * dense_cols) {
+        stu_csr_spmm(csr, args.dense_t, args.out);
+        return;
+    }
+
+    constexpr std::size_t kThreadCount = 8;
+    const int* row_ptr = csr.row_ptr.data();
+    const int* col_idx = csr.col_idx.data();
+    const float* values = csr.values.data();
+    const float* dense = args.dense_t.data();
+    float* output = args.out.data();
+
+    auto compute_rows = [&](int row_begin, int row_end) {
+        for (int r = row_begin; r < row_end; ++r) {
+            float* out_row = output + static_cast<std::size_t>(r) * dense_cols;
+            const int begin = row_ptr[r];
+            const int end = row_ptr[r + 1];
+
+            int n = 0;
+            for (; n + 3 < dense_cols; n += 4) {
+                const float* d0 = dense + static_cast<std::size_t>(n) * cols;
+                const float* d1 = d0 + cols;
+                const float* d2 = d1 + cols;
+                const float* d3 = d2 + cols;
+                float s0 = 0.0f;
+                float s1 = 0.0f;
+                float s2 = 0.0f;
+                float s3 = 0.0f;
+
+                for (int p = begin; p < end; ++p) {
+                    const int col = col_idx[p];
+                    const float v = values[p];
+                    s0 += v * d0[col];
+                    s1 += v * d1[col];
+                    s2 += v * d2[col];
+                    s3 += v * d3[col];
+                }
+                out_row[n] = s0;
+                out_row[n + 1] = s1;
+                out_row[n + 2] = s2;
+                out_row[n + 3] = s3;
+            }
+
+            for (; n < dense_cols; ++n) {
+                const float* dense_row = dense + static_cast<std::size_t>(n) * cols;
+                float acc = 0.0f;
+                for (int p = begin; p < end; ++p) {
+                    acc += values[p] * dense_row[col_idx[p]];
+                }
+                out_row[n] = acc;
+            }
+        }
+    };
+
+    if (rows >= static_cast<int>(kThreadCount * 32)) {
+        std::array<std::thread, kThreadCount - 1> workers;
+        for (std::size_t t = 0; t + 1 < kThreadCount; ++t) {
+            const int begin = static_cast<int>((static_cast<std::size_t>(rows) * t) / kThreadCount);
+            const int end = static_cast<int>((static_cast<std::size_t>(rows) * (t + 1)) / kThreadCount);
+            workers[t] = std::thread(compute_rows, begin, end);
+        }
+        const int main_begin = static_cast<int>((static_cast<std::size_t>(rows) * (kThreadCount - 1)) / kThreadCount);
+        compute_rows(main_begin, rows);
+        for (auto& worker : workers) {
+            worker.join();
+        }
+    } else {
+        compute_rows(0, rows);
+    }
 }
 
 bool sparse_spmm_check(void *stu_ctx, void *ref_ctx, lab_test_func naive_func) {
