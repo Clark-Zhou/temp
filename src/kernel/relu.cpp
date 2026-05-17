@@ -32,6 +32,54 @@ void naive_relu(std::span<float> data) {
 
 void stu_relu(std::span<float> data) {
     // TODO: Implement your version, and call it in stu_relu_wrapper
+    float *p = data.data();
+    const size_t n = data.size();
+
+    constexpr float zero = 0.0f;
+    size_t i = 0;
+
+    // Unrolling
+    for(; i + 15 < n; i += 16) {
+        const float x0 = p[i];
+        const float x1 = p[i + 1];
+        const float x2 = p[i + 2];
+        const float x3 = p[i + 3];
+        const float x4 = p[i + 4];
+        const float x5 = p[i + 5];
+        const float x6 = p[i + 6];
+        const float x7 = p[i + 7];
+        const float x8 = p[i + 8];
+        const float x9 = p[i + 9];
+        const float x10 = p[i + 10];
+        const float x11 = p[i + 11];
+        const float x12 = p[i + 12];
+        const float x13 = p[i + 13];
+        const float x14 = p[i + 14]; 
+        const float x15 = p[i + 15];
+
+        p[i] = x0 < zero ? zero : x0;
+        p[i + 1] = x1 < zero ? zero : x1;
+        p[i + 2] = x2 < zero ? zero : x2;
+        p[i + 3] = x3 < zero ? zero : x3;
+        p[i + 4] = x4 < zero ? zero : x4;
+        p[i + 5] = x5 < zero ? zero : x5;
+        p[i + 6] = x6 < zero ? zero : x6;
+        p[i + 7] = x7 < zero ? zero : x7;
+        p[i + 8] = x8 < zero ? zero : x8;
+        p[i + 9] = x9 < zero ? zero : x9;
+        p[i + 10] = x10 < zero ? zero : x10;
+        p[i + 11] = x11 < zero ? zero : x11;
+        p[i + 12] = x12 < zero ? zero : x12;
+        p[i + 13] = x13 < zero ? zero : x13;
+        p[i + 14] = x14 < zero ? zero : x14;
+        p[i + 15] = x15 < zero ? zero : x15;
+    }
+
+    // Remaining
+    for (; i < n; i++) {
+        const float x = p[i];
+        p[i] = x < zero ? zero : x;
+    }
 }
 
 void naive_relu_wrapper(void *ctx) {
