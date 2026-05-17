@@ -114,16 +114,16 @@ int main() {
                   << black_args_ref.spot_price.size() << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // blackscholes_args black_args_stu;
-        // initialize_blackscholes(black_args_stu, 81920, seed);
-        // run_benchmark({"Black-Scholes",
-        //                stu_BlkSchls_wrapper,
-        //                naive_BlkSchls_wrapper,
-        //                BlkSchls_check,
-        //                &black_args_stu,
-        //                &black_args_ref,
-        //                BASELINE_BLACKSCHOLES,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_BLACKSCHOLES});
+         blackscholes_args black_args_stu;
+         initialize_blackscholes(black_args_stu, 81920, seed);
+         run_benchmark({"Black-Scholes",
+                        stu_BlkSchls_wrapper,
+                        naive_BlkSchls_wrapper,
+                        BlkSchls_check,
+                        &black_args_stu,
+                    &black_args_ref,
+                        BASELINE_BLACKSCHOLES,
+                        NAIVE_SPEEDUP_LOWER_BOUND_BLACKSCHOLES});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Black-Scholes",
@@ -144,16 +144,16 @@ int main() {
                   << ", nnz=" << sparse_args_ref.csr.values.size() << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // sparse_spmm_args sparse_args_stu;
-        // initialize_spmm(sparse_args_stu, 512, 512, -1, {}, seed);
-        // run_benchmark({"Sparse SpMM",
-        //                stu_sparse_spmm_wrapper,
-        //                naive_sparse_spmm_wrapper,
-        //                sparse_spmm_check,
-        //                &sparse_args_stu,
-        //                &sparse_args_ref,
-        //                BASELINE_SPARSE_SPMM,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_SPARSE_SPMM});
+         sparse_spmm_args sparse_args_stu;
+         initialize_spmm(sparse_args_stu, 512, 512, -1, {}, seed);
+         run_benchmark({"Sparse SpMM",
+                        stu_sparse_spmm_wrapper,
+                        naive_sparse_spmm_wrapper,
+                        sparse_spmm_check,
+                        &sparse_args_stu,
+                        &sparse_args_ref,
+                        BASELINE_SPARSE_SPMM,
+                        NAIVE_SPEEDUP_LOWER_BOUND_SPARSE_SPMM});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Sparse SpMM",
@@ -259,16 +259,16 @@ int main() {
                   << ", trace_length=" << trace_args_ref.trace.size() << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // trace_replay_args trace_args_stu;
-        // initialize_trace_replay(trace_args_stu, 1 << 16, 1 << 20, seed);
-        // run_benchmark({"Trace Replay",
-        //                stu_trace_replay_wrapper,
-        //                naive_trace_replay_wrapper,
-        //                trace_replay_check,
-        //                &trace_args_stu,
-        //                &trace_args_ref,
-        //                BASELINE_TRACE_REPLAY,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_TRACE_REPLAY});
+         trace_replay_args trace_args_stu;
+         initialize_trace_replay(trace_args_stu, 1 << 16, 1 << 20, seed);
+         run_benchmark({"Trace Replay",
+                        stu_trace_replay_wrapper,
+                        naive_trace_replay_wrapper,
+                        trace_replay_check,
+                        &trace_args_stu,
+                        &trace_args_ref,
+                        BASELINE_TRACE_REPLAY,
+                        NAIVE_SPEEDUP_LOWER_BOUND_TRACE_REPLAY});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Trace Replay",
@@ -293,17 +293,17 @@ int main() {
                   << ", avg_degree=" << graph_avg_degree << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // graph_args graph_args_stu;
-        // initialize_graph(&graph_args_stu, graph_node_count, graph_avg_degree, seed);
-        // convert_graph_to_csr(graph_args_stu.graph_csr, graph_args_stu.graph);
-        // run_benchmark({"Graph",
-        //                stu_graph_wrapper,
-        //                naive_graph_wrapper,
-        //                graph_check,
-        //                &graph_args_stu,
-        //                &graph_args_ref,
-        //                BASELINE_GRAPH,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_GRAPH});
+         graph_args graph_args_stu;
+         initialize_graph(&graph_args_stu, graph_node_count, graph_avg_degree, seed);
+         convert_graph_to_csr(graph_args_stu.graph_csr, graph_args_stu.graph);
+         run_benchmark({"Graph",
+                        stu_graph_wrapper,
+                        naive_graph_wrapper,
+                        graph_check,
+                        &graph_args_stu,
+                        &graph_args_ref,
+                        BASELINE_GRAPH,
+                        NAIVE_SPEEDUP_LOWER_BOUND_GRAPH});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Graph",
@@ -355,16 +355,16 @@ int main() {
                   << image_args_ref.height << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // image_proc_args image_args_stu;
-        // initialize_image_proc(&image_args_stu, image_width, image_height, seed);
-        // run_benchmark({"Image Proc",
-        //                stu_image_proc_wrapper,
-        //                naive_image_proc_wrapper,
-        //                image_proc_check,
-        //                &image_args_stu,
-        //                &image_args_ref,
-        //                BASELINE_IMAGE_PROC,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_IMAGE_PROC});
+         image_proc_args image_args_stu;
+         initialize_image_proc(&image_args_stu, image_width, image_height, seed);
+     run_benchmark({"Image Proc",
+                        stu_image_proc_wrapper,
+                        naive_image_proc_wrapper,
+                        image_proc_check,
+                        &image_args_stu,
+                        &image_args_ref,
+                        BASELINE_IMAGE_PROC,
+                        NAIVE_SPEEDUP_LOWER_BOUND_IMAGE_PROC});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Image Proc",
@@ -388,18 +388,18 @@ int main() {
         std::cout << "Filter Gradient: " << height << " x " << width << '\n';
 
         // TODO: Uncomment this block when the student implementation exists.
-        // filter_gradient_args filter_gradient_args_stu;
-        // initialize_filter_gradient(&filter_gradient_args_stu, width, height, seed);
-        // convert_soa_to_aos(filter_gradient_args_stu.aos_data,
-        //                    filter_gradient_args_stu.data);
-        // run_benchmark({"Filter Gradient",
-        //                stu_filter_gradient_wrapper,
-        //                naive_filter_gradient_wrapper,
-        //                filter_gradient_check,
-        //                &filter_gradient_args_stu,
-        //                &filter_gradient_args_ref,
-        //                BASELINE_FILTER_GRADIENT,
-        //                NAIVE_SPEEDUP_LOWER_BOUND_FILTER_GRADIENT});
+         filter_gradient_args filter_gradient_args_stu;
+         initialize_filter_gradient(&filter_gradient_args_stu, width, height, seed);
+         convert_soa_to_aos(filter_gradient_args_stu.aos_data,
+                            filter_gradient_args_stu.data);
+         run_benchmark({"Filter Gradient",
+                        stu_filter_gradient_wrapper,
+                        naive_filter_gradient_wrapper,
+                        filter_gradient_check,
+                        &filter_gradient_args_stu,
+                        &filter_gradient_args_ref,
+                        BASELINE_FILTER_GRADIENT,
+                        NAIVE_SPEEDUP_LOWER_BOUND_FILTER_GRADIENT});
 
         // TODO: Comment this block when the student implementation exists:
         run_benchmark({"Filter Gradient",

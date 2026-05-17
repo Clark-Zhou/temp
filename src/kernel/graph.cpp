@@ -66,6 +66,75 @@ void stu_graph(std::uint64_t& out, const Graph& graph) {
     // TODO: You may need to add a function to convert data structure (not
     // included in time measurement), then implement your version in
     // stu_graph, whch is called by stu_graph_wrapper.
+
+    std::uint64_t checksum = 0;
+
+    const int n = graph.n;
+    if (n <= 0 || graph.nodes == nullptr) {
+        out = 0;
+        return;
+    }
+
+    // Infer degree from the first node.
+    int degree = 0;
+    for (const Edge* e = graph.nodes[0].edges; e != nullptr; e = e->next) {
+        ++degree;
+    }
+
+    if (degree == 0) {
+        out = 0;
+        return;
+    }
+
+    // Check whether the first adjacency list is stored contiguously.
+    bool compact = true;
+    const Edge* first = graph.nodes[0].edges;
+
+    for (int k = 0; k + 1 < degree; ++k) {
+        if (first[k].next != &first[k + 1]) {
+            compact = false;
+            break;
+        }
+    }
+
+    if (compact && first[degree - 1].next != nullptr) {
+        compact = false;
+    }
+
+    if (compact) {
+        // Fast path: use the compact array layout directly.
+        for (int u = 0; u < n; ++u) {
+            const Edge* __restrict__ edges = graph.nodes[u].edges;
+
+            int k = 0;
+            for (; k + 7 < degree; k += 8) {
+                checksum += static_cast<std::uint64_t>(edges[k + 0].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 1].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 2].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 3].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 4].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 5].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 6].to);
+                checksum += static_cast<std::uint64_t>(edges[k + 7].to);
+            }
+
+            for (; k < degree; ++k) {
+                checksum += static_cast<std::uint64_t>(edges[k].to);
+            }
+        }
+    } else {
+        // Safe fallback: original linked-list traversal.
+        for (int u = 0; u < n; ++u) {
+            const Edge* e = graph.nodes[u].edges;
+            while (e) {
+                checksum += static_cast<std::uint64_t>(e->to);
+                e = e->next;
+            }
+        }
+    }
+
+    out = checksum;
+
 }
 
 void naive_graph_wrapper(void* ctx) {

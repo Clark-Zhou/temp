@@ -93,6 +93,95 @@ void stu_trace_replay(uint64_t& out,
                       const std::vector<RequestRecord>& records,
                       const std::vector<uint32_t>& trace) {
     // TODO: Implement your version, and call it in stu_trace_replay_wrapper
+
+    const RequestRecord* __restrict__ rec = records.data();
+    const uint32_t* __restrict__ tr = trace.data();
+
+    const size_t n = trace.size();
+
+    uint64_t total = 0;
+    const uint64_t order_mix = 1315423911ull;
+
+    constexpr size_t kPrefetchDistance = 32;
+
+    size_t i = 0;
+
+    for (; i + 3 < n; i += 4) {
+#if defined(__GNUC__)
+        if (i + kPrefetchDistance + 0 < n) {
+            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 0], 0, 1);
+        }
+        if (i + kPrefetchDistance + 1 < n) {
+            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 1], 0, 1);
+        }
+        if (i + kPrefetchDistance + 2 < n) {
+            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 2], 0, 1);
+        }
+        if (i + kPrefetchDistance + 3 < n) {
+            __builtin_prefetch(rec + tr[i + kPrefetchDistance + 3], 0, 1);
+        }
+#endif
+
+        {
+            const RequestRecord& r = rec[tr[i + 0]];
+            const uint64_t cost =
+                static_cast<uint64_t>(r.base_cost)
+                + 2ull * static_cast<uint64_t>(r.retry_penalty)
+                + static_cast<uint64_t>(r.miss_penalty)
+                + (static_cast<uint64_t>(r.bytes) >> 4);
+            total = total * order_mix + cost;
+        }
+
+        {
+            const RequestRecord& r = rec[tr[i + 1]];
+            const uint64_t cost =
+                static_cast<uint64_t>(r.base_cost)
+                + 2ull * static_cast<uint64_t>(r.retry_penalty)
+                + static_cast<uint64_t>(r.miss_penalty)
+                + (static_cast<uint64_t>(r.bytes) >> 4);
+            total = total * order_mix + cost;
+        }
+
+        {
+            const RequestRecord& r = rec[tr[i + 2]];
+            const uint64_t cost =
+                static_cast<uint64_t>(r.base_cost)
+                + 2ull * static_cast<uint64_t>(r.retry_penalty)
+                + static_cast<uint64_t>(r.miss_penalty)
+                + (static_cast<uint64_t>(r.bytes) >> 4);
+            total = total * order_mix + cost;
+        }
+
+        {
+            const RequestRecord& r = rec[tr[i + 3]];
+            const uint64_t cost =
+                static_cast<uint64_t>(r.base_cost)
+                + 2ull * static_cast<uint64_t>(r.retry_penalty)
+                + static_cast<uint64_t>(r.miss_penalty)
+                + (static_cast<uint64_t>(r.bytes) >> 4);
+            total = total * order_mix + cost;
+        }
+    }
+
+    for (; i < n; ++i) {
+#if defined(__GNUC__)
+        if (i + kPrefetchDistance < n) {
+            __builtin_prefetch(rec + tr[i + kPrefetchDistance], 0, 1);
+        }
+#endif
+
+        const RequestRecord& r = rec[tr[i]];
+        const uint64_t cost =
+            static_cast<uint64_t>(r.base_cost)
+            + 2ull * static_cast<uint64_t>(r.retry_penalty)
+            + static_cast<uint64_t>(r.miss_penalty)
+            + (static_cast<uint64_t>(r.bytes) >> 4);
+
+        total = total * order_mix + cost;
+    }
+
+    out = total;
+
 }
 
 void naive_trace_replay_wrapper(void* ctx) {
