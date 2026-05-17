@@ -21,6 +21,8 @@ struct grff_args {
     
     double epsilon;
     // TODO: You may want to add new params here
+    std::vector<float> gate_workspace;
+    std::vector<float> a_prime_workspace;
 
     explicit grff_args(double epsilon_in = 1e-5) : epsilon{epsilon_in} {}
 };

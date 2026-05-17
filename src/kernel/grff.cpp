@@ -12,6 +12,8 @@ void initialize_grff(grff_args *args, const size_t size, const std::uint_fast64_
     args->b_features.resize(size);
     args->c_features.resize(size);
     args->f_output.resize(size);
+    args->gate_workspace.resize(size);
+    args->a_prime_workspace.resize(size);
 
     for (size_t i = 0; i < size; ++i) {
         args->a_features[i] = dist(gen);
