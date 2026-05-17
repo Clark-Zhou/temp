@@ -163,6 +163,113 @@ void naive_image_proc(image_proc_args& args) {
 // -------------------------------------------------------------------------
 void stu_image_proc(image_proc_args& args) {
 
+    const size_t n = args.width * args.height;
+
+    float* __restrict__ out = args.output.data();
+    const float* __restrict__ r = args.r_channel.data();
+    const float* __restrict__ g = args.g_channel.data();
+    const float* __restrict__ b = args.b_channel.data();
+
+    const float threshold = args.threshold;
+
+    constexpr float p0 = 0.11f;
+    constexpr float p1 = 0.22f;
+    constexpr float p2 = 0.33f;
+    constexpr float p3 = 0.44f;
+    constexpr float p4 = 0.55f;
+    constexpr float p5 = 0.66f;
+    constexpr float p6 = 0.77f;
+    constexpr float p7 = 0.88f;
+    constexpr float p8 = 0.99f;
+    constexpr float p9 = 1.01f;
+
+    constexpr float lut0 = 0.0f;
+    constexpr float lut1 = 0.3f;
+    constexpr float lut2 = 1.0f;
+    constexpr float lut3 = 0.3f;
+    constexpr float lut4 = 0.0f;
+
+    for (size_t i = 0; i < n; ++i) {
+        // Inline color_correct(r[i])
+        float r_val = r[i] * 1.05f;
+        r_val = r_val + 0.02f;
+        if (r_val > 1.0f) r_val = 1.0f;
+
+        float g_val = g[i] * 1.05f;
+        g_val = g_val + 0.02f;
+        if (g_val > 1.0f) g_val = 1.0f;
+
+        float b_val = b[i] * 1.05f;
+        b_val = b_val + 0.02f;
+        if (b_val > 1.0f) b_val = 1.0f;
+
+        // Inline compute_gray
+        float gray = (r_val * 0.299f) + (g_val * 0.587f) + (b_val * 0.114f);
+
+        // Inline enhance_contrast
+        float adjusted = (gray - 0.05f) / 0.90f;
+        if (adjusted < 0.0f) adjusted = 0.0f;
+        else if (adjusted > 1.0f) adjusted = 1.0f;
+
+        float gray_enhance = adjusted * adjusted * (3.0f - 2.0f * adjusted);
+
+        // Inline hdr_compress + calculate_gain
+        float intensity = gray_enhance * 1.2f;
+        float g1 = intensity * 0.5f;
+        float g2 = g1 * g1 + 0.1f;
+        float g3 = std::sqrt(g2);
+        float gain = (g3 > 1.0f) ? (1.0f / g3) : (g3 * 0.95f);
+
+        float hdr_result = gray_enhance * gain;
+        float compress_val = hdr_result / (1.0f + hdr_result);
+
+        // Inline complex_mask_logic
+        float mask;
+        if (compress_val > threshold) {
+            mask = (r_val * p0) + (g_val * p1) - (b_val * p2) + p9;
+            if (mask > 0.8f) mask *= p3;
+            else mask += p4;
+        } else {
+            mask = (r_val * p5) - (g_val * p6) + (b_val * p7) - p8;
+            if (mask < 0.2f) mask += p1;
+            else mask *= p2;
+        }
+
+        float noise = std::sin(compress_val * p0) * std::cos(r_val * p1);
+        float final_mask = (mask * 0.7f) + (noise * 0.3f);
+
+        if (final_mask < 0.0f) final_mask = 0.0f;
+        else if (final_mask > 1.0f) final_mask = 1.0f;
+
+        // Inline importance_weight
+        float scaled = final_mask * 4.0f;
+        int idx = static_cast<int>(scaled);
+        if (idx < 0) idx = 0;
+        else if (idx > 4) idx = 4;
+
+        float weight_frac = scaled - static_cast<float>(idx);
+        float weight;
+
+        if (idx == 0) {
+            weight = lut0 * (1.0f - weight_frac) + lut1 * weight_frac;
+        } else if (idx == 1) {
+            weight = lut1 * (1.0f - weight_frac) + lut2 * weight_frac;
+        } else if (idx == 2) {
+            weight = lut2 * (1.0f - weight_frac) + lut3 * weight_frac;
+        } else if (idx == 3) {
+            weight = lut3 * (1.0f - weight_frac) + lut4 * weight_frac;
+        } else {
+            weight = lut4;
+        }
+
+        float result = compress_val * weight;
+        if (result < 0.0f) result = 0.0f;
+        else if (result > 1.0f) result = 1.0f;
+
+        out[i] = result;
+    }
+
+
 }
 
 
