@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
-
 void initialize_grff(grff_args *args, const size_t size, const std::uint_fast64_t seed) {
     if (!args) return;
 
@@ -78,72 +77,52 @@ void naive_grff(grff_args& args) {
 // TODO: Student Implementation
 // -------------------------------------------------------------------------
 void stu_grff(grff_args& args) {
-
     const size_t n = args.a_features.size();
     if (n == 0) {
         return;
     }
 
-    const float* __restrict__ a = args.a_features.data();
-    const float* __restrict__ b = args.b_features.data();
-    const float* __restrict__ c = args.c_features.data();
-    float* __restrict__ out = args.f_output.data();
-
-    std::vector<float> G(n);
-    std::vector<float> A_prime(n);
+    const float *a = args.a_features.data();
+    const float *b = args.b_features.data();
+    const float *c = args.c_features.data();
+    float *out = args.f_output.data();
+    if (args.gate_workspace.size() != n) {
+        args.gate_workspace.resize(n);
+    }
+    if (args.a_prime_workspace.size() != n) {
+        args.a_prime_workspace.resize(n);
+    }
+    float *g_values = args.gate_workspace.data();
+    float *a_prime_values = args.a_prime_workspace.data();
 
     float sum_a = 0.0f;
-
-    // Fused Stage 1, Stage 2, and Stage 3 partial sum.
     for (size_t i = 0; i < n; ++i) {
-        const float prod = a[i] * b[i];
-        const float gate =
-            0.5f * ((prod / (1.0f + std::abs(prod))) + 1.0f);
-
-        G[i] = gate;
-
-        const float ap = a[i] + gate;
-        A_prime[i] = ap;
-        sum_a += ap;
+        const float ab = a[i] * b[i];
+        const float g = 0.5f * ((ab / (1.0f + std::abs(ab))) + 1.0f);
+        const float a_prime = a[i] + g;
+        g_values[i] = g;
+        a_prime_values[i] = a_prime;
+        sum_a += a_prime;
     }
-
     const float avg_a = sum_a / static_cast<float>(n);
 
-    // Handle i = 0 separately because Smooth_A[0] = A_prime[0].
-    {
-        const size_t i = 0;
+    float prev_a_prime = 0.0f;
+    for (size_t i = 0; i < n; ++i) {
+        const float g = g_values[i];
+        const float a_prime = a_prime_values[i];
+        const float smooth_a =
+            (i == 0) ? a_prime : (a_prime + prev_a_prime) * 0.5f;
+        prev_a_prime = a_prime;
 
-        const float smooth = A_prime[0];
-
-        const float b_prime = b[i] * (1.0f - G[i]) * avg_a;
-
-        const float denom = 1.0f + std::abs(smooth);
-        const float c_prime = c[i] + (smooth / denom);
-
-        const float h = smooth * c_prime;
+        const float b_prime = b[i] * (1.0f - g) * avg_a;
+        const float denom = 1.0f + std::abs(smooth_a);
+        const float c_prime = c[i] + (smooth_a / denom);
+        const float h = smooth_a * c_prime;
         const float e = (h + b_prime) / denom;
-
         const float result = c_prime - e;
+
         out[i] = std::max(result, 0.0f);
     }
-
-    // Fused Stage 4 to Stage 9.
-    for (size_t i = 1; i < n; ++i) {
-        const float smooth = (A_prime[i] + A_prime[i - 1]) * 0.5f;
-
-        const float b_prime = b[i] * (1.0f - G[i]) * avg_a;
-
-        const float denom = 1.0f + std::abs(smooth);
-        const float c_prime = c[i] + (smooth / denom);
-
-        const float h = smooth * c_prime;
-        const float e = (h + b_prime) / denom;
-
-        const float result = c_prime - e;
-        out[i] = std::max(result, 0.0f);
-    }
-
-
 }
 
 // -------------------------------------------------------------------------
