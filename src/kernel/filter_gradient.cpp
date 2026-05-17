@@ -1,11 +1,12 @@
 #include "filter_gradient.h"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <random>
-
+#include <thread>
 void initialize_filter_gradient(filter_gradient_args* args,
                         std::size_t width,
                         std::size_t height,
@@ -122,118 +123,146 @@ void naive_filter_gradient(float& out, const data_struct& data,
 }
 
 void stu_filter_gradient(float& out, const data_struct& data,
-                         std::size_t width, std::size_t height) {
+                   std::size_t width, std::size_t height) {
+    // TODO: You may need to add a function to convert data structure (not
+    // included in time measurement), then implement your version in
+    // stu_filter_gradient, whch is called by stu_filter_gradient_wrapper.
+
     const std::size_t W = width;
     const std::size_t H = height;
-    constexpr double inv9 = 1.0 / 9.0;
+    constexpr float inv9 = 1.0f / 9.0f;
+    constexpr std::size_t kThreadCount = 4;
 
-    const float* __restrict__ a = data.a.data();
-    const float* __restrict__ b = data.b.data();
-    const float* __restrict__ c = data.c.data();
-    const float* __restrict__ d = data.d.data();
-    const float* __restrict__ e = data.e.data();
-    const float* __restrict__ f = data.f.data();
-    const float* __restrict__ g = data.g.data();
-    const float* __restrict__ h = data.h.data();
-    const float* __restrict__ i_ch = data.i.data();
-
-    double total = 0.0;
-
-    for (std::size_t y = 1; y + 1 < H; ++y) {
-        const std::size_t ym1 = (y - 1) * W;
-        const std::size_t y0  = y * W;
-        const std::size_t yp1 = (y + 1) * W;
-
-        auto colsum_a = [&](std::size_t x) -> double {
-            return static_cast<double>(a[ym1 + x]) +
-                   static_cast<double>(a[y0  + x]) +
-                   static_cast<double>(a[yp1 + x]);
-        };
-
-        auto colsum_b = [&](std::size_t x) -> double {
-            return static_cast<double>(b[ym1 + x]) +
-                   static_cast<double>(b[y0  + x]) +
-                   static_cast<double>(b[yp1 + x]);
-        };
-
-        auto colsum_c = [&](std::size_t x) -> double {
-            return static_cast<double>(c[ym1 + x]) +
-                   static_cast<double>(c[y0  + x]) +
-                   static_cast<double>(c[yp1 + x]);
-        };
-
-        double ca0 = colsum_a(0);
-        double ca1 = colsum_a(1);
-        double ca2 = colsum_a(2);
-
-        double cb0 = colsum_b(0);
-        double cb1 = colsum_b(1);
-        double cb2 = colsum_b(2);
-
-        double cc0 = colsum_c(0);
-        double cc1 = colsum_c(1);
-        double cc2 = colsum_c(2);
-
-        for (std::size_t x = 1; x + 1 < W; ++x) {
-            const std::size_t xm1 = x - 1;
-            const std::size_t xp1 = x + 1;
-
-            const float avg_a = static_cast<float>((ca0 + ca1 + ca2) * inv9);
-            const float avg_b = static_cast<float>((cb0 + cb1 + cb2) * inv9);
-            const float avg_c = static_cast<float>((cc0 + cc1 + cc2) * inv9);
-
-            const float p1 = avg_a * avg_b + avg_c;
-
-            const float sobel_dx =
-                -d[ym1 + xm1] + d[ym1 + xp1]
-                -2.0f * d[y0 + xm1] + 2.0f * d[y0 + xp1]
-                -d[yp1 + xm1] + d[yp1 + xp1];
-
-            const float sobel_ex =
-                -e[ym1 + xm1] + e[ym1 + xp1]
-                -2.0f * e[y0 + xm1] + 2.0f * e[y0 + xp1]
-                -e[yp1 + xm1] + e[yp1 + xp1];
-
-            const float sobel_fx =
-                -f[ym1 + xm1] + f[ym1 + xp1]
-                -2.0f * f[y0 + xm1] + 2.0f * f[y0 + xp1]
-                -f[yp1 + xm1] + f[yp1 + xp1];
-
-            const float p2 = sobel_dx * sobel_ex + sobel_fx;
-
-            const float sobel_gy =
-                -g[ym1 + xm1] - 2.0f * g[ym1 + x] - g[ym1 + xp1]
-                + g[yp1 + xm1] + 2.0f * g[yp1 + x] + g[yp1 + xp1];
-
-            const float sobel_hy =
-                -h[ym1 + xm1] - 2.0f * h[ym1 + x] - h[ym1 + xp1]
-                + h[yp1 + xm1] + 2.0f * h[yp1 + x] + h[yp1 + xp1];
-
-            const float sobel_iy =
-                -i_ch[ym1 + xm1] - 2.0f * i_ch[ym1 + x] - i_ch[ym1 + xp1]
-                + i_ch[yp1 + xm1] + 2.0f * i_ch[yp1 + x] + i_ch[yp1 + xp1];
-
-            const float p3 = sobel_gy * sobel_hy + sobel_iy;
-
-            total += static_cast<double>(p1 + p2 + p3);
-
-            if (x + 2 < W) {
-                ca0 = ca1;
-                ca1 = ca2;
-                ca2 = colsum_a(x + 2);
-
-                cb0 = cb1;
-                cb1 = cb2;
-                cb2 = colsum_b(x + 2);
-
-                cc0 = cc1;
-                cc1 = cc2;
-                cc2 = colsum_c(x + 2);
-            }
-        }
+    if (W < 3 || H < 3) {
+        out = 0.0f;
+        return;
     }
 
-    out = static_cast<float>(total);
+    const float *a = data.a.data();
+    const float *b = data.b.data();
+    const float *c = data.c.data();
+    const float *d = data.d.data();
+    const float *e = data.e.data();
+    const float *f = data.f.data();
+    const float *g = data.g.data();
+    const float *h = data.h.data();
+    const float *i_channel = data.i.data();
+
+    auto compute_rows = [&](std::size_t y_begin, std::size_t y_end) {
+        double local_total = 0.0;
+
+        for (std::size_t y = y_begin; y < y_end; ++y) {
+            const std::size_t ym1 = (y - 1) * W;
+            const std::size_t y0 = y * W;
+            const std::size_t yp1 = (y + 1) * W;
+
+            double a_col0 = static_cast<double>(a[ym1]) + a[y0] + a[yp1];
+            double a_col1 = static_cast<double>(a[ym1 + 1]) + a[y0 + 1] +
+                            a[yp1 + 1];
+            double a_col2 = static_cast<double>(a[ym1 + 2]) + a[y0 + 2] +
+                            a[yp1 + 2];
+            double b_col0 = static_cast<double>(b[ym1]) + b[y0] + b[yp1];
+            double b_col1 = static_cast<double>(b[ym1 + 1]) + b[y0 + 1] +
+                            b[yp1 + 1];
+            double b_col2 = static_cast<double>(b[ym1 + 2]) + b[y0 + 2] +
+                            b[yp1 + 2];
+            double c_col0 = static_cast<double>(c[ym1]) + c[y0] + c[yp1];
+            double c_col1 = static_cast<double>(c[ym1 + 1]) + c[y0 + 1] +
+                            c[yp1 + 1];
+            double c_col2 = static_cast<double>(c[ym1 + 2]) + c[y0 + 2] +
+                            c[yp1 + 2];
+
+            for (std::size_t x = 1; x + 1 < W; ++x) {
+                const std::size_t xm1 = x - 1;
+                const std::size_t x0 = x;
+                const std::size_t xp1 = x + 1;
+
+                const std::size_t p00 = ym1 + xm1;
+                const std::size_t p01 = ym1 + x0;
+                const std::size_t p02 = ym1 + xp1;
+                const std::size_t p10 = y0 + xm1;
+                const std::size_t p12 = y0 + xp1;
+                const std::size_t p20 = yp1 + xm1;
+                const std::size_t p21 = yp1 + x0;
+                const std::size_t p22 = yp1 + xp1;
+
+                const double sum_a = a_col0 + a_col1 + a_col2;
+                const double sum_b = b_col0 + b_col1 + b_col2;
+                const double sum_c = c_col0 + c_col1 + c_col2;
+                const float avg_a = sum_a * inv9;
+                const float avg_b = sum_b * inv9;
+                const float avg_c = sum_c * inv9;
+                const float p1 = avg_a * avg_b + avg_c;
+
+                const float sobel_dx = -d[p00] + d[p02] - 2.0f * d[p10] +
+                                       2.0f * d[p12] - d[p20] + d[p22];
+                const float sobel_ex = -e[p00] + e[p02] - 2.0f * e[p10] +
+                                       2.0f * e[p12] - e[p20] + e[p22];
+                const float sobel_fx = -f[p00] + f[p02] - 2.0f * f[p10] +
+                                       2.0f * f[p12] - f[p20] + f[p22];
+                const float p2 = sobel_dx * sobel_ex + sobel_fx;
+
+                const float sobel_gy = -g[p00] - 2.0f * g[p01] - g[p02] +
+                                       g[p20] + 2.0f * g[p21] + g[p22];
+                const float sobel_hy = -h[p00] - 2.0f * h[p01] - h[p02] +
+                                       h[p20] + 2.0f * h[p21] + h[p22];
+                const float sobel_iy = -i_channel[p00] - 2.0f * i_channel[p01] -
+                                       i_channel[p02] + i_channel[p20] +
+                                       2.0f * i_channel[p21] + i_channel[p22];
+                const float p3 = sobel_gy * sobel_hy + sobel_iy;
+
+                local_total += p1 + p2 + p3;
+
+                if (x + 2 < W) {
+                    const std::size_t next = x + 2;
+                    a_col0 = a_col1;
+                    a_col1 = a_col2;
+                    a_col2 = static_cast<double>(a[ym1 + next]) + a[y0 + next] +
+                             a[yp1 + next];
+                    b_col0 = b_col1;
+                    b_col1 = b_col2;
+                    b_col2 = static_cast<double>(b[ym1 + next]) + b[y0 + next] +
+                             b[yp1 + next];
+                    c_col0 = c_col1;
+                    c_col1 = c_col2;
+                    c_col2 = static_cast<double>(c[ym1 + next]) + c[y0 + next] +
+                             c[yp1 + next];
+                }
+            }
+        }
+
+        return local_total;
+    };
+
+    const std::size_t interior_rows = H - 2;
+    if (interior_rows >= kThreadCount * 64) {
+        std::array<std::thread, kThreadCount - 1> workers;
+        std::array<double, kThreadCount> partials{};
+
+        for (std::size_t t = 0; t + 1 < kThreadCount; ++t) {
+            const std::size_t y_begin = 1 + (interior_rows * t) / kThreadCount;
+            const std::size_t y_end = 1 + (interior_rows * (t + 1)) / kThreadCount;
+            workers[t] = std::thread([&, t, y_begin, y_end] {
+                partials[t] = compute_rows(y_begin, y_end);
+            });
+        }
+
+        const std::size_t main_begin = 1 + (interior_rows * (kThreadCount - 1)) /
+                                           kThreadCount;
+        partials[kThreadCount - 1] = compute_rows(main_begin, H - 1);
+
+        for (auto& worker : workers) {
+            worker.join();
+        }
+
+        double total = 0.0;
+        for (double part : partials) {
+            total += part;
+        }
+        out = total;
+    } else {
+        out = compute_rows(1, H - 1);
+    }
 }
 
 void naive_filter_gradient_wrapper(void* ctx) {
