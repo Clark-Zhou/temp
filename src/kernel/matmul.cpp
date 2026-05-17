@@ -49,6 +49,52 @@ void stu_matmul(std::vector<float>& C,
                 const std::vector<float>& B,
                 int n) {
     // TODO: Implement your version, and call it in stu_matmul_wrapper
+
+    std::fill(C.begin(), C.end(), 0.0f);
+
+    const float* __restrict__ a = A.data();
+    const float* __restrict__ b = B.data();
+    float* __restrict__ c = C.data();
+
+    constexpr int BS = 32;
+
+    for (int ii = 0; ii < n; ii += BS) {
+        const int i_end = std::min(ii + BS, n);
+
+        for (int kk = 0; kk < n; kk += BS) {
+            const int k_end = std::min(kk + BS, n);
+
+            for (int jj = 0; jj < n; jj += BS) {
+                const int j_end = std::min(jj + BS, n);
+
+                for (int i = ii; i < i_end; ++i) {
+                    const int i_base = i * n;
+
+                    for (int k = kk; k < k_end; ++k) {
+                        const float aik = a[i_base + k];
+                        const int k_base = k * n;
+
+                        int j = jj;
+
+                        for (; j + 7 < j_end; j += 8) {
+                            c[i_base + j + 0] += aik * b[k_base + j + 0];
+                            c[i_base + j + 1] += aik * b[k_base + j + 1];
+                            c[i_base + j + 2] += aik * b[k_base + j + 2];
+                            c[i_base + j + 3] += aik * b[k_base + j + 3];
+                            c[i_base + j + 4] += aik * b[k_base + j + 4];
+                            c[i_base + j + 5] += aik * b[k_base + j + 5];
+                            c[i_base + j + 6] += aik * b[k_base + j + 6];
+                            c[i_base + j + 7] += aik * b[k_base + j + 7];
+                        }
+
+                        for (; j < j_end; ++j) {
+                            c[i_base + j] += aik * b[k_base + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void naive_matmul_wrapper(void* ctx) {
