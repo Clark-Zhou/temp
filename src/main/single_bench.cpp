@@ -13,17 +13,20 @@ int main() {
     std::uint32_t seed = 12345u;
     constexpr size_t relu_size = 1024000;
     relu_args relu_args_naive;
+    relu_args relu_args_stu;
     initialize_relu(&relu_args_naive, relu_size, seed);
+    initialize_relu(&relu_args_stu, relu_size, seed);
     std::println("\tReLU: vector length={}", relu_size);
 
     std::vector<bench_t> benchmarks = {
-                {"ReLU (Naive)",
-                 naive_relu_wrapper,
+                {"ReLU",
+                 stu_relu_wrapper,
                  naive_relu_wrapper,
                  relu_check,
+                 &relu_args_stu,
                  &relu_args_naive,
-                 &relu_args_naive,
-                 BASELINE_RELU},
+                 BASELINE_RELU,
+                 NAIVE_SPEEDUP_LOWER_BOUND_RELU},
     };
     std::cout << "\nRunning Benchmarks...\n";
     std::cout << "--------------------------------------------------------\n";
