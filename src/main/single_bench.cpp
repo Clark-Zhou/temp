@@ -12,10 +12,10 @@
 int main() {
     std::uint32_t seed = 12345u;
     constexpr size_t relu_size = 1024000;
-    relu_args relu_args_naive;
     relu_args relu_args_stu;
-    initialize_relu(&relu_args_naive, relu_size, seed);
+    relu_args relu_args_naive;
     initialize_relu(&relu_args_stu, relu_size, seed);
+    initialize_relu(&relu_args_naive, relu_size, seed);
     std::println("\tReLU: vector length={}", relu_size);
 
     std::vector<bench_t> benchmarks = {
